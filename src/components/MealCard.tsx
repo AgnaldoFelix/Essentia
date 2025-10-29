@@ -1,18 +1,19 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Meal } from '@/types/nutrition';
-import { Clock, Flame, Beef } from 'lucide-react';
+import { Clock, Flame, Beef, Edit2, Trash2 } from 'lucide-react';
 
 interface MealCardProps {
   meal: Meal;
-  onClick?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
-export const MealCard = ({ meal, onClick }: MealCardProps) => {
+export const MealCard = ({ meal, onEdit, onDelete }: MealCardProps) => {
   return (
     <Card 
-      className="p-6 shadow-card hover:shadow-hover transition-all duration-300 cursor-pointer border-border/50 hover:border-primary/30 bg-card"
-      onClick={onClick}
+      className="p-6 shadow-card hover:shadow-hover transition-all duration-300 border-border/50 hover:border-primary/30 bg-card group"
     >
       <div className="flex items-start gap-4">
         <div className="text-5xl">{meal.emoji}</div>
@@ -25,6 +26,35 @@ export const MealCard = ({ meal, onClick }: MealCardProps) => {
                 <span className="text-sm font-medium text-muted-foreground">{meal.time}</span>
               </div>
               <h3 className="text-xl font-bold text-foreground mt-1">{meal.name}</h3>
+            </div>
+            
+            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              {onEdit && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit();
+                  }}
+                  className="hover:bg-primary/10 hover:text-primary"
+                >
+                  <Edit2 className="h-4 w-4" />
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete();
+                  }}
+                  className="hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
 

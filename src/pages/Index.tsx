@@ -9,34 +9,90 @@ import {
   BarChart3, 
   Settings,
   Menu,
-  Clock
+  Clock,
+  Plus,
+  RotateCcw,
+  Trash2
 } from 'lucide-react';
 import { MealCard } from '@/components/MealCard';
 import { DashboardStats } from '@/components/DashboardStats';
 import { ChatInterface } from '@/components/ChatInterface';
-import { mealPlans } from '@/data/mealPlans';
+import { EditMealDialog } from '@/components/EditMealDialog';
+import { useMealPlans } from '@/hooks/useMealPlans';
 import { storage } from '@/lib/localStorage';
-import { DailyPlan } from '@/types/nutrition';
+import { Meal } from '@/types/nutrition';
+import { toast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Index = () => {
-  const [selectedPlan, setSelectedPlan] = useState<DailyPlan>(mealPlans[0]);
+  const { 
+    plans, 
+    selectedPlan, 
+    selectedPlanId, 
+    updateMeal, 
+    addMeal,
+    deleteMeal,
+    selectPlan,
+    resetToDefault 
+  } = useMealPlans();
+  
   const [activeTab, setActiveTab] = useState('home');
-
-  useEffect(() => {
-    const savedPlanId = storage.getSelectedPlan();
-    const plan = mealPlans.find(p => p.id === savedPlanId) || mealPlans[0];
-    setSelectedPlan(plan);
-  }, []);
-
-  const handlePlanChange = (planId: string) => {
-    const plan = mealPlans.find(p => p.id === planId);
-    if (plan) {
-      setSelectedPlan(plan);
-      storage.saveSelectedPlan(planId);
-    }
-  };
+  const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [mealToDelete, setMealToDelete] = useState<string | null>(null);
 
   const profile = storage.getUserProfile();
+
+  const handleEditMeal = (meal: Meal) => {
+    setEditingMeal(meal);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveMeal = (updatedMeal: Meal) => {
+    updateMeal(selectedPlanId, updatedMeal.id, updatedMeal);
+  };
+
+  const handleAddNewMeal = () => {
+    const newMeal: Meal = {
+      id: `meal-${Date.now()}`,
+      time: '12:00',
+      name: 'Nova Refeição',
+      emoji: '🍽️',
+      protein: 0,
+      calories: 0,
+      description: 'Adicione uma descrição para esta refeição',
+      foods: []
+    };
+    
+    setEditingMeal(newMeal);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleDeleteMeal = (mealId: string) => {
+    deleteMeal(selectedPlanId, mealId);
+    setMealToDelete(null);
+    toast({
+      title: "Refeição removida",
+      description: "A refeição foi removida com sucesso",
+    });
+  };
+
+  const handleResetPlan = () => {
+    resetToDefault();
+    toast({
+      title: "Plano resetado",
+      description: "O planejamento foi restaurado aos valores padrão",
+    });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -83,24 +139,24 @@ const Index = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           {/* Dashboard */}
           <TabsContent value="home" className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
                 <h2 className="text-3xl font-bold">Dashboard</h2>
                 <p className="text-muted-foreground">Resumo do seu dia nutricional</p>
               </div>
               <div className="flex gap-2">
                 <Button
-                  variant={selectedPlan.id === 'plan-15h' ? 'default' : 'outline'}
-                  onClick={() => handlePlanChange('plan-15h')}
-                  className={selectedPlan.id === 'plan-15h' ? 'bg-gradient-primary' : ''}
+                  variant={selectedPlanId === 'plan-15h' ? 'default' : 'outline'}
+                  onClick={() => selectPlan('plan-15h')}
+                  className={selectedPlanId === 'plan-15h' ? 'bg-gradient-primary' : ''}
                 >
                   <Clock className="h-4 w-4 mr-2" />
                   Até 15h
                 </Button>
                 <Button
-                  variant={selectedPlan.id === 'plan-18h' ? 'default' : 'outline'}
-                  onClick={() => handlePlanChange('plan-18h')}
-                  className={selectedPlan.id === 'plan-18h' ? 'bg-gradient-primary' : ''}
+                  variant={selectedPlanId === 'plan-18h' ? 'default' : 'outline'}
+                  onClick={() => selectPlan('plan-18h')}
+                  className={selectedPlanId === 'plan-18h' ? 'bg-gradient-primary' : ''}
                 >
                   <Clock className="h-4 w-4 mr-2" />
                   Até 18h
@@ -116,10 +172,25 @@ const Index = () => {
             />
 
             <div>
-              <h3 className="text-xl font-bold mb-4">Refeições de Hoje - {selectedPlan.name}</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold">Refeições de Hoje - {selectedPlan.name}</h3>
+                <Button
+                  onClick={handleAddNewMeal}
+                  className="bg-gradient-primary gap-2"
+                  size="sm"
+                >
+                  <Plus className="h-4 w-4" />
+                  Nova Refeição
+                </Button>
+              </div>
               <div className="grid gap-4">
                 {selectedPlan.meals.map((meal) => (
-                  <MealCard key={meal.id} meal={meal} />
+                  <MealCard 
+                    key={meal.id} 
+                    meal={meal}
+                    onEdit={() => handleEditMeal(meal)}
+                    onDelete={() => setMealToDelete(meal.id)}
+                  />
                 ))}
               </div>
             </div>
@@ -127,19 +198,29 @@ const Index = () => {
 
           {/* Planejamento */}
           <TabsContent value="plan" className="space-y-6">
-            <div>
-              <h2 className="text-3xl font-bold">Planejamento Alimentar</h2>
-              <p className="text-muted-foreground">Visualize e ajuste seu plano nutricional</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-3xl font-bold">Planejamento Alimentar</h2>
+                <p className="text-muted-foreground">Visualize e ajuste seu plano nutricional</p>
+              </div>
+              <Button
+                onClick={handleResetPlan}
+                variant="outline"
+                className="gap-2"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Restaurar Padrão
+              </Button>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
-              {mealPlans.map((plan) => (
+              {plans.map((plan) => (
                 <Card 
                   key={plan.id}
                   className={`p-6 cursor-pointer transition-all shadow-card hover:shadow-hover ${
-                    selectedPlan.id === plan.id ? 'border-primary border-2' : 'border-border/50'
+                    selectedPlanId === plan.id ? 'border-primary border-2' : 'border-border/50'
                   }`}
-                  onClick={() => handlePlanChange(plan.id)}
+                  onClick={() => selectPlan(plan.id)}
                 >
                   <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
                   <div className="space-y-2 text-sm text-muted-foreground">
@@ -151,10 +232,28 @@ const Index = () => {
               ))}
             </div>
 
-            <div className="grid gap-4">
-              {selectedPlan.meals.map((meal) => (
-                <MealCard key={meal.id} meal={meal} />
-              ))}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold">Refeições - {selectedPlan.name}</h3>
+                <Button
+                  onClick={handleAddNewMeal}
+                  className="bg-gradient-primary gap-2"
+                  size="sm"
+                >
+                  <Plus className="h-4 w-4" />
+                  Nova Refeição
+                </Button>
+              </div>
+              <div className="grid gap-4">
+                {selectedPlan.meals.map((meal) => (
+                  <MealCard 
+                    key={meal.id} 
+                    meal={meal}
+                    onEdit={() => handleEditMeal(meal)}
+                    onDelete={() => setMealToDelete(meal.id)}
+                  />
+                ))}
+              </div>
             </div>
           </TabsContent>
 
@@ -217,6 +316,48 @@ const Index = () => {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Edit Meal Dialog */}
+        {editingMeal && (
+          <EditMealDialog
+            meal={editingMeal}
+            open={isEditDialogOpen}
+            onOpenChange={(open) => {
+              setIsEditDialogOpen(open);
+              if (!open) {
+                // Check if it's a new meal (no existing ID in the plan)
+                const existingMeal = selectedPlan.meals.find(m => m.id === editingMeal.id);
+                if (!existingMeal && editingMeal.foods.length > 0) {
+                  addMeal(selectedPlanId, editingMeal);
+                }
+                setEditingMeal(null);
+              }
+            }}
+            onSave={handleSaveMeal}
+          />
+        )}
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!mealToDelete} onOpenChange={() => setMealToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir esta refeição? Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => mealToDelete && handleDeleteMeal(mealToDelete)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Mobile Navigation */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border/50 px-4 py-2">
