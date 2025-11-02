@@ -145,10 +145,10 @@ export const ChatInterface = () => {
     <Card className="flex flex-col h-[600px] shadow-card border-border/50">
       <div className="p-4 border-b border-border/50 bg-gradient-primary">
         <div className="flex items-center gap-2">
-          <Bot className="h-6 w-6 text-white" />
-          <h3 className="text-lg font-bold text-white">Assistente Nutricional IA</h3>
+          <Bot className="h-6 w-6" style={{ color: 'var(--ds-neutral-50)' }} />
+          <h3 className="text-lg font-bold" style={{ color: 'var(--ds-neutral-50)' }}>Assistente Nutricional IA</h3>
         </div>
-        <p className="text-sm text-white/80 mt-1">Tire suas dúvidas sobre nutrição e planejamento alimentar</p>
+        <p className="text-sm mt-1" style={{ color: 'rgba(var(--ds-neutral-50-rgb), 0.8)' }}>Tire suas dúvidas sobre nutrição e planejamento alimentar</p>
       </div>
 
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
@@ -175,9 +175,10 @@ export const ChatInterface = () => {
               <div
                 className={`max-w-[80%] rounded-2xl p-4 ${
                   message.role === 'user'
-                    ? 'bg-gradient-primary text-white'
-                    : 'bg-muted text-foreground'
+          ? 'bg-gradient-primary'
+          : 'bg-muted text-foreground'
                 }`}
+        style={message.role === 'user' ? { color: 'var(--ds-neutral-50)' } : undefined}
               >
                 <p className="text-sm whitespace-pre-wrap">{message.content}</p>
               </div>

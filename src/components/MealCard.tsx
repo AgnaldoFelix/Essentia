@@ -13,7 +13,7 @@ interface MealCardProps {
 export const MealCard = ({ meal, onEdit, onDelete }: MealCardProps) => {
   return (
     <Card 
-      className="p-6 shadow-card hover:shadow-hover transition-all duration-300 border-border/50 hover:border-primary/30 bg-card group"
+      className="p-6 transition-all duration-300 border-[color:var(--ds-default-100)] hover:border-[color:var(--ds-success-200)] group"
     >
       <div className="flex items-start gap-4">
         <div className="text-5xl">{meal.emoji}</div>
@@ -22,10 +22,10 @@ export const MealCard = ({ meal, onEdit, onDelete }: MealCardProps) => {
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-muted-foreground">{meal.time}</span>
+                <Clock className="h-4 w-4" style={{ color: 'var(--ds-neutral-500)' }} />
+                <span className="text-sm font-medium" style={{ color: 'var(--ds-neutral-600)' }}>{meal.time}</span>
               </div>
-              <h3 className="text-xl font-bold text-foreground mt-1">{meal.name}</h3>
+              <h3 className="text-xl font-bold mt-1" style={{ color: 'var(--ds-neutral-900)' }}>{meal.name}</h3>
             </div>
             
             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -37,7 +37,7 @@ export const MealCard = ({ meal, onEdit, onDelete }: MealCardProps) => {
                     e.stopPropagation();
                     onEdit();
                   }}
-                  className="hover:bg-primary/10 hover:text-primary"
+                  className="hover:bg-[var(--ds-default-50)] hover:text-[var(--ds-neutral-800)]"
                 >
                   <Edit2 className="h-4 w-4" />
                 </Button>
@@ -50,7 +50,7 @@ export const MealCard = ({ meal, onEdit, onDelete }: MealCardProps) => {
                     e.stopPropagation();
                     onDelete();
                   }}
-                  className="hover:bg-destructive/10 hover:text-destructive"
+                  className="hover:bg-[var(--ds-danger-50)] hover:text-[var(--ds-danger-700)]"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -67,11 +67,11 @@ export const MealCard = ({ meal, onEdit, onDelete }: MealCardProps) => {
           </div>
 
           <div className="flex gap-3 flex-wrap">
-            <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">
+            <Badge variant="secondary" className="bg-[var(--ds-success-50)] text-[var(--ds-success-700)]">
               <Beef className="h-3 w-3 mr-1" />
               {meal.protein}g proteína
             </Badge>
-            <Badge variant="secondary" className="bg-accent/10 text-accent hover:bg-accent/20">
+            <Badge variant="secondary" className="bg-[var(--ds-warning-50)] text-[var(--ds-warning-700)]">
               <Flame className="h-3 w-3 mr-1" />
               {meal.calories} kcal
             </Badge>

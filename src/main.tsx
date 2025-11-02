@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { NextUIProvider } from "@nextui-org/react";
 import App from "./App.tsx";
 import "./index.css";
+import { registerDesignColors } from "./lib/registerColors";
 
 // Polyfill for NextUI userAgent issue
 if (typeof navigator !== 'undefined' && !navigator.userAgent) {
@@ -10,6 +11,9 @@ if (typeof navigator !== 'undefined' && !navigator.userAgent) {
     configurable: true
   });
 }
+
+// Registrar variáveis CSS com a paleta do projeto
+registerDesignColors();
 
 createRoot(document.getElementById("root")!).render(
   <NextUIProvider locale="pt-BR">
