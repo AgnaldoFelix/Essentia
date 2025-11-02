@@ -4,7 +4,7 @@ import App from "./App.tsx";
 import "./index.css";
 
 createRoot(document.getElementById("root")!).render(
-  <NextUIProvider>
+  <NextUIProvider locale="pt-BR">
     <App />
   </NextUIProvider>
 );
