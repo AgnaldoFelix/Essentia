@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Button, 
   Tabs, 
@@ -6,6 +6,7 @@ import {
   Card,
   CardBody,
   Chip,
+  Progress,
   useDisclosure
 } from '@nextui-org/react';
 import { 
@@ -53,8 +54,37 @@ const IndexPro = () => {
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose, onOpenChange: onEditOpenChange } = useDisclosure();
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose, onOpenChange: onDeleteOpenChange } = useDisclosure();
   const [mealToDelete, setMealToDelete] = useState<string | null>(null);
+  const [dayProgress, setDayProgress] = useState(0);
 
   const profile = storage.getUserProfile();
+
+  // Calcular progresso do dia
+  useEffect(() => {
+    const calculateDayProgress = () => {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const currentTimeInMinutes = currentHour * 60 + currentMinute;
+      
+      // Horário de início (7h00)
+      const startTime = 7 * 60; // 7:00 em minutos
+      
+      // Horário final depende do plano escolhido
+      const endTime = selectedPlanId === 'plan-15h' ? 15 * 60 : 18 * 60;
+      
+      // Calcular progresso
+      const totalMinutes = endTime - startTime;
+      const elapsedMinutes = Math.max(0, currentTimeInMinutes - startTime);
+      const progress = Math.min(100, (elapsedMinutes / totalMinutes) * 100);
+      
+      setDayProgress(progress);
+    };
+
+    calculateDayProgress();
+    const interval = setInterval(calculateDayProgress, 60000); // Atualizar a cada minuto
+    
+    return () => clearInterval(interval);
+  }, [selectedPlanId]);
 
   const navItems = [
     { icon: Home, label: 'Início', value: 'home' },
@@ -129,12 +159,35 @@ const IndexPro = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-divider bg-background/70 backdrop-blur-lg">
-        <div className="container max-w-7xl mx-auto flex h-16 items-center justify-between px-4">
-          <div className="flex items-center gap-3">
-            <div className="text-3xl">🥗</div>
-            <div>
-              <h1 className="text-xl font-bold gradient-primary bg-clip-text text-transparent">NutriTrack Pro</h1>
-              <p className="text-xs text-default-500">Seu planejamento nutricional profissional</p>
+        <div className="container max-w-7xl mx-auto flex h-20 items-center justify-between px-4">
+          <div className="flex items-center gap-4">
+            {/* Logo melhorada */}
+            <div className="relative">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg">
+                <span className="text-2xl">🥗</span>
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-success rounded-full border-2 border-background"></div>
+            </div>
+            
+            <div className="flex flex-col gap-1.5">
+              <h1 className="text-xl font-bold gradient-primary bg-clip-text text-transparent">
+                NutriTrack Pro
+              </h1>
+              
+              {/* Barra de progresso do dia */}
+              <div className="w-48 flex flex-col gap-1">
+                <Progress 
+                  size="sm"
+                  value={dayProgress}
+                  color="primary"
+                  classNames={{
+                    indicator: "bg-gradient-to-r from-primary to-secondary"
+                  }}
+                />
+                <p className="text-xs text-default-500">
+                  Seu planejamento nutricional profissional
+                </p>
+              </div>
             </div>
           </div>
           
