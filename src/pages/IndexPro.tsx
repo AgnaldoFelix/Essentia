@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { FeedingWindowProgress } from '@/components/FeedingWindowProgress';
 import { 
   Home, 
   Calendar, 
@@ -17,16 +16,17 @@ import {
   Clock,
   Plus,
   RotateCcw,
-  Trash2
+  Trash2,
+  Layers
 } from 'lucide-react';
 import { MealCardPro } from '@/components/MealCardPro';
 import { DashboardStatsPro } from '@/components/DashboardStatsPro';
 import { ChatInterfacePro } from '@/components/ChatInterfacePro';
 import { EditMealDialogPro } from '@/components/EditMealDialogPro';
+import { ManagePlansDialog } from '@/components/ManagePlansDialog'; // NOVO COMPONENTE
 import { useMealPlans } from '@/hooks/useMealPlans';
 import { storage } from '@/lib/localStorage';
 import { Meal } from '@/types/nutrition';
-import { toast } from '@/hooks/use-toast';
 
 const IndexPro = () => {
   const { 
@@ -37,6 +37,10 @@ const IndexPro = () => {
     addMeal,
     deleteMeal,
     selectPlan,
+    createNewPlan, // NOVA FUNÇÃO
+    updatePlan, // NOVA FUNÇÃO
+    deletePlan, // NOVA FUNÇÃO
+    duplicatePlan, // NOVA FUNÇÃO
     resetToDefault 
   } = useMealPlans();
   
@@ -46,7 +50,8 @@ const IndexPro = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [mealToDelete, setMealToDelete] = useState<string | null>(null);
   const [dayProgress, setDayProgress] = useState(0);
-  
+  const [managePlansOpen, setManagePlansOpen] = useState(false); // NOVO ESTADO
+
   const { toast } = useToast();
 
   const profile = storage.getUserProfile();
@@ -62,8 +67,12 @@ const IndexPro = () => {
       // Horário de início (7h00)
       const startTime = 7 * 60; // 7:00 em minutos
       
-      // Horário final depende do plano escolhido
-      const endTime = selectedPlanId === 'plan-15h' ? 15 * 60 : 18 * 60;
+      // Horário final - agora usa o último horário do plano selecionado
+      const mealTimes = selectedPlan.meals.map(meal => {
+        const [hours, minutes] = meal.time.split(':').map(Number);
+        return hours * 60 + minutes;
+      });
+      const endTime = Math.max(...mealTimes) || 18 * 60; // Fallback para 18h
       
       // Calcular progresso
       const totalMinutes = endTime - startTime;
@@ -77,7 +86,7 @@ const IndexPro = () => {
     const interval = setInterval(calculateDayProgress, 60000); // Atualizar a cada minuto
     
     return () => clearInterval(interval);
-  }, [selectedPlanId]);
+  }, [selectedPlanId, selectedPlan.meals]);
 
   const navItems = [
     { icon: Home, label: 'Início', value: 'home' },
@@ -170,14 +179,9 @@ const IndexPro = () => {
               <h1 className="text-xl font-bold ">
                 Essentia
               </h1>
-              
-              {/* Barra de progresso do dia */}
-              <div className="w-full">
-                <FeedingWindowProgress selectedPlanId={selectedPlanId} />
-                <p className="text-xs text-default-500 mt-2">
-                  Seu planejamento nutricional profissional
-                </p>
-              </div>
+              <p className="text-xs text-default-500">
+                Seu planejamento nutricional profissional
+              </p>
             </div>
           </div>
           
@@ -223,20 +227,12 @@ const IndexPro = () => {
                 </div>
                 <div className="flex gap-2">
                   <Button
-                    variant={selectedPlanId === 'plan-15h' ? 'default' : 'ghost'}
-                    onClick={() => selectPlan('plan-15h')}
+                    onClick={() => setManagePlansOpen(true)}
+                    variant="outline"
                     className="gap-2"
                   >
-                    <Clock className="h-4 w-4" />
-                    Até 15h
-                  </Button>
-                  <Button
-                    variant={selectedPlanId === 'plan-18h' ? 'default' : 'ghost'}
-                    onClick={() => selectPlan('plan-18h')}
-                    className="gap-2"
-                  >
-                    <Clock className="h-4 w-4" />
-                    Até 18h
+                    <Layers className="h-4 w-4" />
+                    Modelos
                   </Button>
                 </div>
               </div>
@@ -253,14 +249,16 @@ const IndexPro = () => {
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xl font-bold">Refeições de Hoje - {selectedPlan.name}</h3>
-                  <Button
-                    onClick={handleAddNewMeal}
-                    size="sm"
-                    className="gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Nova Refeição
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleAddNewMeal}
+                      size="sm"
+                      className="gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Nova Refeição
+                    </Button>
+                  </div>
                 </div>
                 <div className="grid gap-4">
                   {selectedPlan.meals.map((meal) => (
@@ -279,22 +277,33 @@ const IndexPro = () => {
           {/* Planejamento */}
           <TabsContent value="plan">
             <div className="space-y-6 animate-fade-in">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                   <h2 className="text-3xl font-bold">Planejamento Alimentar</h2>
                   <p className="text-muted-foreground">Visualize e ajuste seu plano nutricional</p>
                 </div>
-                <Button
-                  onClick={handleResetPlan}
-                  variant="outline"
-                  className="gap-2"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  Restaurar Padrão
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setManagePlansOpen(true)}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    <Layers className="h-4 w-4" />
+                    Gerenciar Modelos
+                  </Button>
+                  <Button
+                    onClick={handleResetPlan}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Restaurar Padrão
+                  </Button>
+                </div>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
+              {/* Seleção de Planos */}
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {plans.map((plan) => (
                   <Card 
                     key={plan.id}
@@ -305,17 +314,22 @@ const IndexPro = () => {
                     }`}
                     onClick={() => selectPlan(plan.id)}
                   >
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold mb-3">{plan.name}</h3>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <h3 className="text-lg font-bold">{plan.name}</h3>
+                        {selectedPlanId === plan.id && (
+                          <Badge variant="secondary" className="text-xs">Ativo</Badge>
+                        )}
+                      </div>
                       <div className="flex flex-wrap gap-2">
-                        <Badge variant="outline">
+                        <Badge variant="outline" className="text-xs">
                           🍗 {plan.meals.length} refeições
                         </Badge>
-                        <Badge variant="secondary">
-                          💪 {plan.totalProtein}g proteína
+                        <Badge variant="secondary" className="text-xs">
+                          💪 {plan.totalProtein}g
                         </Badge>
-                        <Badge variant="secondary">
-                          🔥 {plan.totalCalories} kcal
+                        <Badge variant="secondary" className="text-xs">
+                          🔥 {plan.totalCalories}kcal
                         </Badge>
                       </div>
                     </CardContent>
@@ -464,6 +478,19 @@ const IndexPro = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Manage Plans Modal - NOVO COMPONENTE */}
+        <ManagePlansDialog
+          isOpen={managePlansOpen}
+          onOpenChange={setManagePlansOpen}
+          plans={plans}
+          selectedPlanId={selectedPlanId}
+          onSelectPlan={selectPlan}
+          onCreatePlan={createNewPlan}
+          onUpdatePlan={updatePlan}
+          onDeletePlan={deletePlan}
+          onDuplicatePlan={duplicatePlan}
+        />
 
         {/* Mobile Navigation */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background/70 backdrop-blur-lg border-t px-4 py-2">
