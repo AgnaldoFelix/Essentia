@@ -13,6 +13,8 @@ export interface FoodItem {
   id: string;
   name: string;
   amount: string;
+  protein: number;
+  calories: number;
 }
 
 export interface DailyPlan {
