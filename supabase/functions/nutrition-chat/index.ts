@@ -1,5 +1,6 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { fetch as httpFetch } from "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { env } from "https://deno.land/std@0.168.0/env/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,8 +14,8 @@ serve(async (req) => {
 
   try {
     const { messages } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
+    const LOVABLE_API_KEY = env.get("LOVABLE_API_KEY");
+
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
@@ -31,7 +32,7 @@ Suas principais funções:
 Mantenha respostas claras, objetivas e sempre baseadas em evidências científicas. 
 Use emojis quando apropriado para tornar a conversa mais amigável.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await httpFetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
