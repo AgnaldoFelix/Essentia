@@ -32,7 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import ChatInterfacePro from '@/components/ChatInterfacePro';
+import { ChatInterfacePro } from '@/components/ChatInterfacePro';
 
 const Index = () => {
   const { 

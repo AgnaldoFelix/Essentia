@@ -21,13 +21,12 @@ import {
 } from 'lucide-react';
 import { MealCardPro } from '@/components/MealCardPro';
 import { DashboardStatsPro } from '@/components/DashboardStatsPro';
-
+import { ChatInterfacePro } from '@/components/ChatInterfacePro';
 import { EditMealDialogPro } from '@/components/EditMealDialogPro';
 import { ManagePlansDialog } from '@/components/ManagePlansDialog'; // NOVO COMPONENTE
 import { useMealPlans } from '@/hooks/useMealPlans';
 import { storage } from '@/lib/localStorage';
 import { Meal } from '@/types/nutrition';
-import ChatInterfacePro from '@/components/ChatInterfacePro';
 
 const IndexPro = () => {
   const { 

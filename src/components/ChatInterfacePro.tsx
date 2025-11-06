@@ -1,13 +1,18 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Bot, User, Sparkles, Leaf, Apple, Droplet } from "lucide-react";
-
-// Types
-type ChatMessage = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: number;
-};
+import {
+  Card,
+  CardBody,
+  Input,
+  Button,
+  Avatar,
+  Spinner,
+  Chip,
+} from "@nextui-org/react";
+import { Send, Bot, User, Sparkles, Copy, ThumbsUp, ThumbsDown } from "lucide-react";
+import { ChatMessage } from "@/types/nutrition";
+import { storage } from "@/lib/localStorage";
+import { toast } from "@/hooks/use-toast";
+import { motion, AnimatePresence } from "framer-motion";
 
 type DataWithReply = {
   reply: string;
@@ -19,46 +24,17 @@ type ParsedResponse = {
   message?: string;
 };
 
-interface ToastProps {
-  title: string;
-  description: string;
-  variant?: string;
-}
+const CHAT_API = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL.replace(/\/$/, "")}/avaliar`
+  : "/avaliar";
 
-// Mock storage for demo
-const storage = {
-  getChatHistory: () => {
-    try {
-      const stored = localStorage.getItem('chat_history');
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  },
-  saveChatHistory: (messages: ChatMessage[]) => {
-    try {
-      localStorage.setItem('chat_history', JSON.stringify(messages));
-    } catch (e) {
-      console.error('Failed to save chat history', e);
-    }
-  }
-};
-
-// Mock toast
-const toast = ({ title, description, variant }: ToastProps) => {
-  console.log(`${variant?.toUpperCase() || 'INFO'}: ${title} - ${description}`);
-  alert(`${title}\n${description}`);
-};
-
-// Constants
-const CHAT_API = "/avaliar";
 const REQUEST_TIMEOUT = 30_000;
 
 const suggestedQuestions = [
-  { text: "Como calcular minhas macros?", icon: <Apple className="w-4 h-4" /> },
-  { text: "Qual a melhor proteína pré-treino?", icon: <Droplet className="w-4 h-4" /> },
-  { text: "Dicas para ganho de massa muscular", icon: <Sparkles className="w-4 h-4" /> },
-  { text: "Como fazer um déficit calórico?", icon: <Leaf className="w-4 h-4" /> },
+  "Como calcular minhas macros?",
+  "Qual a melhor proteína pré-treino?",
+  "Dicas para ganho de massa muscular",
+  "Como fazer um déficit calórico?",
 ];
 
 const makeId = (prefix = "msg") => `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -66,17 +42,101 @@ const makeId = (prefix = "msg") => `${prefix}-${Date.now()}-${Math.floor(Math.ra
 const formatTime = (ts: number) =>
   new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-export default function ChatInterfacePro() {
+// Componente para mensagens com animação
+const MessageBubble = ({ message, onCopy, onFeedback }: { 
+  message: ChatMessage; 
+  onCopy: (content: string) => void;
+  onFeedback: (messageId: string, isPositive: boolean) => void;
+}) => {
+  const [showActions, setShowActions] = useState(false);
+  const isUser = message.role === "user";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className={`flex gap-3 items-start ${isUser ? "flex-row-reverse" : "flex-row"}`}
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => setShowActions(false)}
+    >
+      <Avatar
+        icon={isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+        className={`shrink-0 ${
+          isUser 
+            ? "bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg shadow-blue-500/25" 
+            : "bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/25"
+        }`}
+        size="sm"
+      />
+      
+      <div className="flex flex-col gap-1 max-w-[85%]">
+        <div
+          className={`relative p-4 rounded-2xl break-words ${
+            isUser
+              ? "bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/25 ml-auto"
+              : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg shadow-gray-200/20 dark:shadow-gray-800/20"
+          }`}
+        >
+          <p className="text-sm whitespace-pre-wrap leading-relaxed">
+            {message.content}
+          </p>
+          
+          {/* Ações para mensagens do assistente */}
+          {!isUser && showActions && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex gap-1 absolute -bottom-2 right-2 bg-white dark:bg-gray-800 rounded-full p-1 shadow-lg border"
+            >
+              <Button
+                isIconOnly
+                size="sm"
+                variant="light"
+                onPress={() => onCopy(message.content)}
+                className="h-6 w-6 min-w-6"
+              >
+                <Copy className="h-3 w-3" />
+              </Button>
+              <Button
+                isIconOnly
+                size="sm"
+                variant="light"
+                onPress={() => onFeedback(message.id, true)}
+                className="h-6 w-6 min-w-6 text-green-500"
+              >
+                <ThumbsUp className="h-3 w-3" />
+              </Button>
+              <Button
+                isIconOnly
+                size="sm"
+                variant="light"
+                onPress={() => onFeedback(message.id, false)}
+                className="h-6 w-6 min-w-6 text-red-500"
+              >
+                <ThumbsDown className="h-3 w-3" />
+              </Button>
+            </motion.div>
+          )}
+        </div>
+        
+        <div className={`text-xs text-gray-500 ${isUser ? "text-right" : "text-left"}`}>
+          {formatTime(message.timestamp)}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+export const ChatInterfacePro = () => {
   const [messages, setMessages] = useState<ChatMessage[]>(
     () => storage.getChatHistory() ?? []
   );
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [focusedInput, setFocusedInput] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-save to storage
+  // Persistência automática
   useEffect(() => {
     storage.saveChatHistory(messages);
   }, [messages]);
@@ -110,312 +170,296 @@ export default function ChatInterfacePro() {
     setInput("");
     setIsLoading(true);
 
-    // Simulate API call for demo
-    setTimeout(() => {
+    const body = {
+      message: textToSend.trim(),
+      chat_history: buildChatHistoryForBackend([...messages, userMessage]),
+    };
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+    try {
+      let res = await fetch(CHAT_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (!res.ok && res.status >= 500 && res.status < 600) {
+        await new Promise((r) => setTimeout(r, 300));
+        res = await fetch(CHAT_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+      }
+
+      clearTimeout(timeout);
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        let parsed: ParsedResponse = null;
+        try {
+          parsed = text ? JSON.parse(text) : null;
+        } catch {
+          parsed = null;
+        }
+        const serverMessage = (parsed?.error ?? parsed?.detail ?? parsed?.message ?? text) || `Erro ${res.status}`;
+        throw new Error(String(serverMessage));
+      }
+
+      const data = await res.json().catch(() => null);
+      const assistantText = data?.reply?.replace(/^Dr\.Nutri:\s*/i, "").trim() || 
+        (typeof data === "string" ? data : "Desculpe, não consegui entender a resposta do servidor.");
+
       const assistantMessage: ChatMessage = {
         id: makeId("assistant"),
         role: "assistant",
-        content: "Ótima pergunta! Para calcular suas macros, precisamos considerar seu objetivo (emagrecimento, ganho de massa ou manutenção), seu nível de atividade física e seu peso corporal. Uma abordagem comum é: Proteínas: 1.6-2.2g por kg de peso, Carboidratos: 3-5g por kg (ajustável conforme atividade), Gorduras: 0.8-1g por kg. Gostaria que eu detalhasse mais algum aspecto?",
+        content: assistantText,
         timestamp: Date.now(),
       };
-      
+
       setMessages((prev) => [...prev, assistantMessage]);
+    } catch (err: unknown) {
+      setMessages((prev) => prev.filter((m) => m.id !== userMessage.id));
+      
+      let messageText = "Não foi possível enviar a mensagem.";
+      if (err instanceof Error) {
+        messageText = err.message;
+      }
+      
+      toast({
+        title: "Erro",
+        description: messageText,
+        variant: "destructive",
+      });
+    } finally {
+      clearTimeout(timeout);
       setIsLoading(false);
-    }, 2000);
+    }
   };
 
   const handleSuggestionClick = (text: string) => {
     setInput(text);
-    setTimeout(() => handleSend(text), 100);
+    setTimeout(() => handleSend(text), 80);
+  };
+
+  const handleCopyMessage = (content: string) => {
+    navigator.clipboard.writeText(content);
+    toast({
+      title: "Copiado!",
+      description: "Mensagem copiada para a área de transferência",
+    });
+  };
+
+  const handleFeedback = (messageId: string, isPositive: boolean) => {
+    toast({
+      title: isPositive ? "Obrigado pelo feedback! 👍" : "Desculpe pela experiência! 👎",
+      description: "Sua opinião nos ajuda a melhorar",
+    });
+    // Aqui você pode enviar o feedback para seu backend
+    console.log(`Feedback ${isPositive ? 'positive' : 'negative'} para mensagem:`, messageId);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 p-4 md:p-8">
-      <div className="max-w-5xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2 animate-fadeIn">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg mb-4 animate-float">
-            <Leaf className="w-8 h-8 text-white" />
+    <div className="w-full max-w-4xl mx-auto p-4 space-y-6">
+      {/* Header com gradiente profissional */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center space-y-2"
+      >
+        <div className="flex items-center justify-center gap-3">
+          <div className="p-3 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/25">
+            <Bot className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-            Assistente Nutricional IA
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+            Dr. Nutri AI
           </h1>
-          <p className="text-gray-600 text-lg">
-            Seu guia personalizado para uma vida mais saudável
-          </p>
         </div>
+        <p className="text-gray-600 dark:text-gray-400 text-lg">
+          Seu assistente pessoal de nutrição e fitness
+        </p>
+      </motion.div>
 
-        {/* Suggested Questions */}
-        {messages.length === 0 && (
-          <div className="animate-slideUp" style={{ animationDelay: '150ms' }}>
-            <div className="border-none bg-white/80 backdrop-blur-xl shadow-xl rounded-2xl overflow-hidden">
-              <div className="p-6 md:p-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500">
-                    <Sparkles className="h-5 w-5 text-white" />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-800">
-                    Perguntas Populares
-                  </h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {suggestedQuestions.map((q, i) => (
-                    <div
-                      key={i}
-                      onClick={() => handleSuggestionClick(q.text)}
-                      className="group relative overflow-hidden rounded-xl p-4 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 animate-fadeInUp border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 hover:shadow-lg"
-                      style={{ animationDelay: `${i * 100}ms` }}
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/0 via-emerald-500/10 to-emerald-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
-                      <div className="relative flex items-center gap-3">
-                        <div className="flex-shrink-0 p-2 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md group-hover:shadow-lg transition-shadow">
-                          {q.icon}
-                        </div>
-                        <span className="text-sm font-medium text-gray-700 group-hover:text-emerald-700 transition-colors">
-                          {q.text}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+      {/* Suggested Questions com animação */}
+      {messages.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Card className="border-none bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 shadow-xl shadow-green-500/5">
+            <CardBody className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <Sparkles className="h-6 w-6 text-green-500" />
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
+                  Comece uma conversa
+                </h3>
               </div>
-            </div>
-          </div>
-        )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {suggestedQuestions.map((q, i) => (
+                  <motion.div
+                    key={i}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Chip
+                      variant="flat"
+                      className="w-full cursor-pointer bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-all duration-200 border border-green-200 dark:border-green-800 text-gray-700 dark:text-gray-300 hover:shadow-md hover:border-green-300 dark:hover:border-green-600 py-4 px-4 text-sm font-medium"
+                      onClick={() => handleSuggestionClick(q)}
+                    >
+                      {q}
+                    </Chip>
+                  </motion.div>
+                ))}
+              </div>
+            </CardBody>
+          </Card>
+        </motion.div>
+      )}
 
-        {/* Chat Messages */}
-        <div className="border-none bg-white/80 backdrop-blur-xl shadow-2xl rounded-2xl overflow-hidden animate-slideUp" style={{ animationDelay: '300ms' }}>
-          <div className="p-0">
-            <div className="h-[500px] md:h-[600px] overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar">
-              {messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center px-4 animate-zoomIn">
-                  <div className="relative mb-6">
-                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full blur-2xl opacity-30 animate-pulse"></div>
-                    <div className="relative p-6 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 shadow-2xl">
-                      <Bot className="h-16 w-16 text-white" />
-                    </div>
-                  </div>
-                  <h3 className="text-2xl md:text-3xl font-bold mb-3 bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-                    Olá! Sou seu Nutricionista Virtual
+      {/* Chat Container */}
+      <Card className="border-none shadow-2xl shadow-green-500/10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
+        <CardBody className="p-0">
+          <div className="h-[500px] overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-gray-50/50 to-white/50 dark:from-gray-900/50 dark:to-gray-800/50">
+            {messages.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center justify-center h-full text-center space-y-6"
+              >
+                <div className="p-6 rounded-3xl bg-gradient-to-br from-green-500 to-emerald-600 shadow-2xl shadow-green-500/25">
+                  <Bot className="h-16 w-16 text-white" />
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-2xl font-bold text-gray-800 dark:text-white">
+                    Olá! Sou o Dr. Nutri
                   </h3>
-                  <p className="text-gray-600 max-w-md text-lg leading-relaxed">
-                    Estou aqui para ajudar com nutrição, planejamento alimentar, 
-                    cálculo de macros e muito mais! Como posso te auxiliar hoje?
+                  <p className="text-gray-600 dark:text-gray-400 max-w-md text-lg leading-relaxed">
+                    Especialista em nutrição, fitness e bem-estar. Estou aqui para ajudar você a alcançar seus objetivos!
                   </p>
                 </div>
-              ) : (
-                messages.map((message, idx) => (
-                  <div
+              </motion.div>
+            ) : (
+              <AnimatePresence>
+                {messages.map((message) => (
+                  <MessageBubble
                     key={message.id}
-                    className={`flex gap-3 items-end animate-slideUp ${
-                      message.role === "user" ? "flex-row-reverse" : "flex-row"
-                    }`}
-                    style={{ animationDelay: `${idx * 50}ms` }}
-                  >
-                    <div className="flex-shrink-0">
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-transform hover:scale-110 ${
-                          message.role === "user" 
-                            ? "bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/30" 
-                            : "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/30"
-                        }`}
-                      >
-                        {message.role === "user" ? (
-                          <User className="h-5 w-5 text-white" />
-                        ) : (
-                          <Bot className="h-5 w-5 text-white" />
-                        )}
-                      </div>
-                    </div>
-                    <div
-                      className={`flex-1 max-w-[85%] md:max-w-[75%] p-4 rounded-2xl break-words transition-all duration-300 hover:shadow-lg ${
-                        message.role === "user"
-                          ? "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/20 rounded-br-md"
-                          : "bg-gradient-to-br from-gray-100 to-gray-50 text-gray-800 shadow-md rounded-bl-md"
-                      }`}
-                    >
-                      <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">
-                        {message.content}
-                      </p>
-                      <div className={`mt-2 text-xs flex justify-end ${
-                        message.role === "user" 
-                          ? "text-blue-100" 
-                          : "text-gray-500"
-                      }`}>
-                        {formatTime(message.timestamp)}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
+                    message={message}
+                    onCopy={handleCopyMessage}
+                    onFeedback={handleFeedback}
+                  />
+                ))}
+              </AnimatePresence>
+            )}
 
-              {/* Loading indicator */}
-              {isLoading && (
-                <div className="flex gap-3 animate-slideUp">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/30">
-                    <Bot className="h-5 w-5 text-white" />
-                  </div>
-                  <div className="flex items-center gap-3 p-4 rounded-2xl rounded-bl-md bg-gradient-to-br from-gray-100 to-gray-50 shadow-md">
+            {/* Loading indicator */}
+            {isLoading && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex gap-3 items-start"
+              >
+                <Avatar 
+                  icon={<Bot className="h-4 w-4" />} 
+                  className="bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/25"
+                  size="sm"
+                />
+                <div className="flex items-center gap-3 p-4 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg">
+                  <Spinner size="sm" classNames={{ circle1: "border-b-green-500", circle2: "border-b-green-500" }} />
+                  <div className="space-y-1">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Pensando...</span>
                     <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                      <motion.div
+                        animate={{ scale: [1, 1.2, 1] }}
+                        transition={{ duration: 1, repeat: Infinity, delay: 0 }}
+                        className="h-1 w-1 rounded-full bg-green-500"
+                      />
+                      <motion.div
+                        animate={{ scale: [1, 1.2, 1] }}
+                        transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
+                        className="h-1 w-1 rounded-full bg-green-500"
+                      />
+                      <motion.div
+                        animate={{ scale: [1, 1.2, 1] }}
+                        transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
+                        className="h-1 w-1 rounded-full bg-green-500"
+                      />
                     </div>
-                    <span className="text-sm text-gray-600 font-medium">
-                      Analisando sua questão...
-                    </span>
                   </div>
                 </div>
-              )}
+              </motion.div>
+            )}
 
-              <div ref={messagesEndRef} />
-            </div>
+            <div ref={messagesEndRef} />
+          </div>
 
-            {/* Input Area */}
-            <div className="p-4 md:p-6 border-t border-gray-200 bg-gradient-to-r from-gray-50/50 to-transparent">
-              <div className="flex gap-3 items-end">
-                <div className="flex-1 relative">
-                  <div className="relative">
-                    <Leaf className={`absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none transition-colors duration-300 ${
-                      focusedInput ? "text-emerald-500" : "text-gray-400"
-                    }`} />
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      placeholder="Digite sua pergunta sobre nutrição..."
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                      onFocus={() => setFocusedInput(true)}
-                      onBlur={() => setFocusedInput(false)}
-                      disabled={isLoading}
-                      className={`w-full pl-12 pr-4 py-3 text-base rounded-xl border-2 bg-white transition-all duration-300 outline-none ${
-                        focusedInput 
-                          ? "border-emerald-500 shadow-lg shadow-emerald-500/20 scale-[1.01]" 
-                          : "border-gray-300"
-                      } ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
-                      aria-label="Mensagem para o assistente nutricional"
-                    />
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleSend()}
-                  disabled={!input.trim() || isLoading}
-                  className={`p-3 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg transition-all duration-300 ${
-                    input.trim() && !isLoading
-                      ? "hover:shadow-xl hover:shadow-emerald-500/30 hover:scale-110 active:scale-95 cursor-pointer"
-                      : "opacity-50 cursor-not-allowed"
-                  }`}
-                  aria-label="Enviar mensagem"
+          {/* Input Area melhorada */}
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+            <div className="flex gap-3">
+              <Input
+                placeholder="Digite sua pergunta sobre nutrição, exercícios, suplementos..."
+                value={input}
+                onValueChange={setInput}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                disabled={isLoading}
+                variant="bordered"
+                size="lg"
+                classNames={{
+                  input: "text-base placeholder-gray-500",
+                  inputWrapper: "bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 hover:border-green-500 dark:hover:border-green-500 focus-within:border-green-500 dark:focus-within:border-green-500 transition-colors",
+                }}
+                endContent={
+                  <Button
+                    isIconOnly
+                    variant="light"
+                    size="sm"
+                    onPress={() => setInput("")}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    ✕
+                  </Button>
+                }
+              />
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  isIconOnly
+                  color="primary"
+                  onPress={() => handleSend()}
+                  isDisabled={!input.trim() || isLoading}
+                  size="lg"
+                  className="bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/25 hover:shadow-green-500/40 transition-all"
                 >
                   {isLoading ? (
-                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <Spinner size="sm" color="white" />
                   ) : (
-                    <Send className="h-6 w-6" />
+                    <Send className="h-5 w-5" />
                   )}
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-3 text-center">
-                Pressione Enter para enviar • Shift + Enter para quebrar linha
-              </p>
+                </Button>
+              </motion.div>
+            </div>
+            
+            {/* Quick tips */}
+            <div className="flex items-center gap-2 mt-3 text-xs text-gray-500 dark:text-gray-400">
+              <Sparkles className="h-3 w-3" />
+              <span>Dica: Pergunte sobre dieta, treinos, suplementos ou metas específicas</span>
             </div>
           </div>
-        </div>
-      </div>
+        </CardBody>
+      </Card>
 
-      <style>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes zoomIn {
-          from {
-            opacity: 0;
-            transform: scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-
-        @keyframes float {
-          0%, 100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
-        }
-
-        .animate-fadeIn {
-          animation: fadeIn 0.7s ease-out;
-        }
-
-        .animate-slideUp {
-          animation: slideUp 0.7s ease-out;
-          animation-fill-mode: both;
-        }
-
-        .animate-fadeInUp {
-          animation: fadeInUp 0.6s ease-out;
-          animation-fill-mode: both;
-        }
-
-        .animate-zoomIn {
-          animation: zoomIn 0.7s ease-out;
-        }
-
-        .animate-float {
-          animation: float 3s ease-in-out infinite;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(0, 0, 0, 0.05);
-          border-radius: 10px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: linear-gradient(180deg, #10b981, #14b8a6);
-          border-radius: 10px;
-          transition: background 0.3s;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(180deg, #059669, #0d9488);
-        }
-      `}</style>
+      {/* Footer */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5 }}
+        className="text-center text-sm text-gray-500 dark:text-gray-400"
+      >
+        <p>Dr. Nutri AI • Assistente de nutrição e fitness • {new Date().getFullYear()}</p>
+      </motion.div>
     </div>
   );
-}
+};
