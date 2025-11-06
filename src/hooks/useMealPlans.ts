@@ -10,27 +10,35 @@ export const useMealPlans = () => {
 
   // Load custom plans from localStorage on mount
   useEffect(() => {
-    const savedPlans = localStorage.getItem(CUSTOM_PLANS_KEY);
-    if (savedPlans) {
-      try {
-        const customPlans = JSON.parse(savedPlans);
-        setPlans(customPlans);
-      } catch (error) {
-        console.error('Error loading custom plans:', error);
-      }
+  const savedPlans = localStorage.getItem(CUSTOM_PLANS_KEY);
+  if (savedPlans) {
+    try {
+      const customPlans: DailyPlan[] = JSON.parse(savedPlans);
+      // Verificar se cada plano tem as metas, se não, adicionar valores padrão
+      const plansWithGoals = customPlans.map(plan => ({
+        ...plan,
+        proteinGoal: plan.proteinGoal || 150,
+        caloriesGoal: plan.caloriesGoal || 2000
+      }));
+      setPlans(plansWithGoals);
+    } catch (error) {
+      console.error('Error loading custom plans:', error);
     }
+  } else {
+    // Se não há planos salvos, usar os planos padrão, garantindo que tenham metas
+    const defaultPlansWithGoals = defaultMealPlans.map(plan => ({
+      ...plan,
+      proteinGoal: plan.proteinGoal || 150,
+      caloriesGoal: plan.caloriesGoal || 2000
+    }));
+    setPlans(defaultPlansWithGoals);
+  }
 
-    const savedPlanId = localStorage.getItem('nutrition_selected_plan');
-    if (savedPlanId) {
-      setSelectedPlanId(savedPlanId);
-    }
-  }, []);
-
-  // Save plans to localStorage whenever they change
-  const savePlans = (newPlans: DailyPlan[]) => {
-    setPlans(newPlans);
-    localStorage.setItem(CUSTOM_PLANS_KEY, JSON.stringify(newPlans));
-  };
+  const savedPlanId = localStorage.getItem('nutrition_selected_plan');
+  if (savedPlanId) {
+    setSelectedPlanId(savedPlanId);
+  }
+}, []);
 
   const updateMeal = (planId: string, mealId: string, updatedMeal: Meal) => {
     const newPlans = plans.map(plan => {
@@ -134,70 +142,75 @@ export const useMealPlans = () => {
 
   // NOVAS FUNÇÕES PARA GERENCIAR MODELOS
   const createNewPlan = (name: string, basePlan?: DailyPlan) => {
-    let newPlan: DailyPlan;
+  let newPlan: DailyPlan;
+  
+  if (basePlan) {
+    // Duplicar um plano existente com todas as refeições e metas
+    newPlan = {
+      ...basePlan,
+      id: `plan-${Date.now()}`,
+      name,
+      // Manter todas as refeições do plano base
+      meals: basePlan.meals.map(meal => ({
+        ...meal,
+        id: `meal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` // Novo ID único para cada refeição
+      })),
+      // Manter as metas do plano base
+      proteinGoal: basePlan.proteinGoal || 150,
+      caloriesGoal: basePlan.caloriesGoal || 2000
+    };
+  } else {
+    // Criar plano vazio com algumas refeições padrão e metas padrão
+    newPlan = {
+      id: `plan-${Date.now()}`,
+      name,
+      totalProtein: 0,
+      totalCalories: 0,
+      proteinGoal: 150, // Meta padrão de proteína
+      caloriesGoal: 2000, // Meta padrão de calorias
+      meals: [
+        {
+          id: `meal-${Date.now()}-breakfast`,
+          time: '08:00',
+          name: 'Café da Manhã',
+          emoji: '☕',
+          protein: 0,
+          calories: 0,
+          description: 'Adicione alimentos para o café da manhã',
+          foods: []
+        },
+        {
+          id: `meal-${Date.now()}-lunch`,
+          time: '12:00',
+          name: 'Almoço',
+          emoji: '🍽️',
+          protein: 0,
+          calories: 0,
+          description: 'Adicione alimentos para o almoço',
+          foods: []
+        },
+        {
+          id: `meal-${Date.now()}-dinner`,
+          time: '19:00',
+          name: 'Jantar',
+          emoji: '🌙',
+          protein: 0,
+          calories: 0,
+          description: 'Adicione alimentos para o jantar',
+          foods: []
+        }
+      ]
+    };
     
-    if (basePlan) {
-      // Duplicar um plano existente com todas as refeições
-      newPlan = {
-        ...basePlan,
-        id: `plan-${Date.now()}`,
-        name,
-        // Manter todas as refeições do plano base
-        meals: basePlan.meals.map(meal => ({
-          ...meal,
-          id: `meal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` // Novo ID único para cada refeição
-        }))
-      };
-    } else {
-      // Criar plano vazio com algumas refeições padrão
-      newPlan = {
-        id: `plan-${Date.now()}`,
-        name,
-        totalProtein: 0,
-        totalCalories: 0,
-        meals: [
-          {
-            id: `meal-${Date.now()}-breakfast`,
-            time: '08:00',
-            name: 'Café da Manhã',
-            emoji: '☕',
-            protein: 0,
-            calories: 0,
-            description: 'Adicione alimentos para o café da manhã',
-            foods: []
-          },
-          {
-            id: `meal-${Date.now()}-lunch`,
-            time: '12:00',
-            name: 'Almoço',
-            emoji: '🍽️',
-            protein: 0,
-            calories: 0,
-            description: 'Adicione alimentos para o almoço',
-            foods: []
-          },
-          {
-            id: `meal-${Date.now()}-dinner`,
-            time: '19:00',
-            name: 'Jantar',
-            emoji: '🌙',
-            protein: 0,
-            calories: 0,
-            description: 'Adicione alimentos para o jantar',
-            foods: []
-          }
-        ]
-      };
-      
-      // Calcular totais iniciais
-      newPlan.totalProtein = newPlan.meals.reduce((sum, meal) => sum + meal.protein, 0);
-      newPlan.totalCalories = newPlan.meals.reduce((sum, meal) => sum + meal.calories, 0);
-    }
+    // Calcular totais iniciais
+    newPlan.totalProtein = newPlan.meals.reduce((sum, meal) => sum + meal.protein, 0);
+    newPlan.totalCalories = newPlan.meals.reduce((sum, meal) => sum + meal.calories, 0);
+  }
 
-    const newPlans = [...plans, newPlan];
-    savePlans(newPlans);
-    return newPlan.id;
-  };
+  const newPlans = [...plans, newPlan];
+  savePlans(newPlans);
+  return newPlan.id;
+};
 
   const updatePlan = (planId: string, updates: Partial<DailyPlan>) => {
     const newPlans = plans.map((plan) => 

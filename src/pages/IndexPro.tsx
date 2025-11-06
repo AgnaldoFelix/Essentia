@@ -244,6 +244,7 @@ const IndexPro = () => {
                 caloriesGoal={profile.dailyCaloriesGoal}
                 meals={selectedPlan.meals}
                 selectedPlanId={selectedPlanId}
+                selectedPlan={selectedPlan}
               />
 
               <div>
