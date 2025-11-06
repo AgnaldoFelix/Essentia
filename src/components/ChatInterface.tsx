@@ -1,232 +1,345 @@
-import { useState, useRef, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Send, Bot, User } from 'lucide-react';
-import { ChatMessage } from '@/types/nutrition';
-import { storage } from '@/lib/localStorage';
-import { toast } from '@/hooks/use-toast';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { useState, useRef, useEffect, useCallback } from "react";
+import {
+  Card,
+  CardBody,
+  Input,
+  Button,
+  Avatar,
+  Spinner,
+  Chip,
+} from "@nextui-org/react";
+import { Send, Bot, User, Sparkles } from "lucide-react";
+import { ChatMessage } from "@/types/nutrition";
+import { storage } from "@/lib/localStorage";
+import { toast } from "@/hooks/use-toast";
 
-export const ChatInterface = () => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
+type DataWithReply = {
+  reply: string;
+  // other properties if any
+};
+
+type ParsedResponse = {
+  error?: string;
+  detail?: string;
+  message?: string;
+};
+
+type ErrorResponse = {
+  status: number;
+};
+/**
+ * ChatInterfacePro (refatorado)
+ * - Usa backend `/avaliar` para processamento (não expõe chaves).
+ * - Persistência automática via `storage`.
+ * - Melhor tratamento de erros, rollback e timeout.
+ * - Exibe timestamps, spinner de "Pensando..." e sugestões clicáveis.
+ */
+
+// Endereço do seu backend (ajuste se necessário)
+const CHAT_API = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL.replace(/\/$/, "")}/avaliar`
+  : "/avaliar";
+
+// Timeout em ms para a request (evita ficar pendurado indefinidamente)
+const REQUEST_TIMEOUT = 30_000;
+
+const suggestedQuestions = [
+  "Como calcular minhas macros?",
+  "Qual a melhor proteína pré-treino?",
+  "Dicas para ganho de massa muscular",
+  "Como fazer um déficit calórico?",
+];
+
+const makeId = (prefix = "msg") => `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+const formatTime = (ts: number) =>
+  new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+export const ChatInterfacePro = () => {
+  const [messages, setMessages] = useState<ChatMessage[]>(
+    () => storage.getChatHistory() ?? []
+  );
+  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  // Persistência automática sempre que messages mudam
   useEffect(() => {
-    const savedMessages = storage.getChatHistory();
-    setMessages(savedMessages);
+    storage.saveChatHistory(messages);
+  }, [messages]);
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
-  const streamChat = async (userMessage: string) => {
-    const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nutrition-chat`;
-    
-    const response = await fetch(CHAT_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      },
-      body: JSON.stringify({ 
-        messages: messages.map(m => ({ role: m.role, content: m.content })).concat([
-          { role: 'user', content: userMessage }
-        ])
-      }),
-    });
+  // Envia o histórico (mapear para o formato que o backend espera)
+  const buildChatHistoryForBackend = (msgs: ChatMessage[]) =>
+    msgs.map((m) => ({
+      // Backend espera { from: 'user'|'model', text: string } (ajustado conforme FastAPI)
+      from: m.role === "user" ? "user" : "model",
+      text: m.content,
+    }));
 
-    if (!response.ok) {
-      if (response.status === 429 || response.status === 402) {
-        const error = await response.json();
-        throw new Error(error.error);
-      }
-      throw new Error('Falha ao conectar com o chat');
-    }
+  const handleSend = async (prefill?: string) => {
+  const textToSend = prefill ?? input;
+  if (!textToSend.trim() || isLoading) return;
 
-    if (!response.body) throw new Error('No response body');
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let textBuffer = '';
-    let streamDone = false;
-    let assistantContent = '';
-
-    const assistantMessageId = `msg-${Date.now()}-assistant`;
-    
-    while (!streamDone) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      textBuffer += decoder.decode(value, { stream: true });
-
-      let newlineIndex: number;
-      while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
-        let line = textBuffer.slice(0, newlineIndex);
-        textBuffer = textBuffer.slice(newlineIndex + 1);
-
-        if (line.endsWith('\r')) line = line.slice(0, -1);
-        if (line.startsWith(':') || line.trim() === '') continue;
-        if (!line.startsWith('data: ')) continue;
-
-        const jsonStr = line.slice(6).trim();
-        if (jsonStr === '[DONE]') {
-          streamDone = true;
-          break;
-        }
-
-        try {
-          const parsed = JSON.parse(jsonStr);
-          const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-          if (content) {
-            assistantContent += content;
-            setMessages(prev => {
-              const existing = prev.find(m => m.id === assistantMessageId);
-              if (existing) {
-                return prev.map(m => 
-                  m.id === assistantMessageId 
-                    ? { ...m, content: assistantContent }
-                    : m
-                );
-              }
-              return [...prev, {
-                id: assistantMessageId,
-                role: 'assistant',
-                content: assistantContent,
-                timestamp: Date.now()
-              }];
-            });
-          }
-        } catch {
-          textBuffer = line + '\n' + textBuffer;
-          break;
-        }
-      }
-    }
+  const userMessage: ChatMessage = {
+    id: makeId("user"),
+    role: "user",
+    content: textToSend.trim(),
+    timestamp: Date.now(),
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  // Otimistic update
+  setMessages((prev) => [...prev, userMessage]);
+  setInput("");
+  setIsLoading(true);
 
-    const userMessage: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      role: 'user',
-      content: input,
-      timestamp: Date.now()
+  const body = {
+    message: textToSend.trim(),
+    chat_history: buildChatHistoryForBackend(
+      [...(storage.getChatHistory() ?? messages), userMessage]
+    ),
+  };
+
+  const attemptFetch = async (signal: AbortSignal) => {
+    return fetch(CHAT_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal,
+    });
+  };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+  try {
+    let res = await attemptFetch(controller.signal);
+
+    // retry once on 5xx
+    if (!res.ok && res.status >= 500 && res.status < 600) {
+      console.warn("Servidor retornou 5xx — tentando retry uma vez...");
+      await new Promise((r) => setTimeout(r, 300));
+      res = await attemptFetch(controller.signal);
+    }
+
+    clearTimeout(timeout);
+
+    if (res.status === 429) {
+      throw new Error("Limite de requisições excedido. Por favor, tente novamente mais tarde.");
+    }
+    if (res.status === 402) {
+      throw new Error("Créditos insuficientes no serviço de IA.");
+    }
+    if (!res.ok) {
+      // extrai texto e tenta parsear JSON seguro
+      const text = await res.text().catch(() => "");
+      let parsed: ParsedResponse = null;
+      try {
+        parsed = text ? JSON.parse(text) : null;
+      } catch {
+        parsed = null;
+      }
+
+      // evita mix de ?? e || sem parênteses: usamos parênteses para garantir
+const serverMessage =
+  (parsed?.error ?? parsed?.detail ?? parsed?.message ?? text) ||
+  `Erro ${res.status}`;
+
+      throw new Error(String(serverMessage));
+    }
+
+    // sucesso
+    const data = await res.json().catch(() => null);
+
+const assistantText =
+  data && typeof (data as DataWithReply).reply === "string"
+    ? (data as DataWithReply).reply.replace(/^Dr\.Nutri:\s*/i, "").trim()
+    : typeof data === "string"
+    ? data
+    : "Desculpe, não consegui entender a resposta do servidor.";
+
+    const assistantMessage: ChatMessage = {
+      id: makeId("assistant"),
+      role: "assistant",
+      content: assistantText,
+      timestamp: Date.now(),
     };
 
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
-    setInput('');
-    setIsLoading(true);
+    setMessages((prev) => {
+      const dedup = prev.filter((m) => m.id !== userMessage.id);
+      const next = [...dedup, userMessage, assistantMessage];
+      storage.saveChatHistory(next);
+      return next;
+    });
+  } catch (err: unknown) {
+    // remove mensagem otimista
+    setMessages((prev) => prev.filter((m) => m.id !== userMessage.id));
 
-    try {
-      await streamChat(input);
-      const updatedMessages = storage.getChatHistory();
-      storage.saveChatHistory([...newMessages, ...updatedMessages.slice(newMessages.length)]);
-    } catch (error) {
-      console.error('Chat error:', error);
-      toast({
-        title: "Erro no chat",
-        description: error instanceof Error ? error.message : "Não foi possível enviar a mensagem",
-        variant: "destructive"
-      });
-      setMessages(messages);
-    } finally {
-      setIsLoading(false);
+    // Narrowing seguro de 'unknown'
+    let messageText = "Não foi possível enviar a mensagem.";
+    if (err instanceof Error) {
+      messageText = err.message;
+    } else if (typeof err === "object" && err !== null) {
+      // se for um objeto que contenha detail/message
+      const e = err as Record<string, unknown>;
+      if (typeof e.detail === "string") messageText = e.detail;
+      else if (typeof e.message === "string") messageText = e.message;
+      else messageText = JSON.stringify(e);
+    } else {
+      messageText = String(err);
     }
+
+    console.error("Erro ao enviar mensagem (detalhes):", err);
+
+    toast({
+      title: "Erro",
+      description: messageText,
+      variant: "destructive",
+    });
+  } finally {
+    clearTimeout(timeout);
+    setIsLoading(false);
+  }
+};
+
+
+  // Atalho: enviar quando o usuário clicar em uma sugestão
+  const handleSuggestionClick = (text: string) => {
+    // preenche input e dispara envio breve para sentir mais "proativo"
+    setInput(text);
+    // pequeno delay para dar sensação de que o usuário confirmou a escolha
+    setTimeout(() => handleSend(text), 80);
   };
 
   return (
-    <Card className="flex flex-col h-[600px] shadow-card border-border/50">
-      <div className="p-4 border-b border-border/50 bg-gradient-primary">
-        <div className="flex items-center gap-2">
-          <Bot className="h-6 w-6" style={{ color: 'var(--ds-neutral-50)' }} />
-          <h3 className="text-lg font-bold" style={{ color: 'var(--ds-neutral-50)' }}>Assistente Nutricional IA</h3>
-        </div>
-        <p className="text-sm mt-1" style={{ color: 'rgba(var(--ds-neutral-50-rgb), 0.8)' }}>Tire suas dúvidas sobre nutrição e planejamento alimentar</p>
-      </div>
-
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-        <div className="space-y-4">
-          {messages.length === 0 && (
-            <div className="text-center text-muted-foreground py-8">
-              <Bot className="h-12 w-12 mx-auto mb-3 text-primary" />
-              <p>Olá! Sou seu assistente nutricional.</p>
-              <p className="text-sm mt-2">Pergunte sobre calorias, macros, ajustes nas refeições e muito mais!</p>
+    <div className="space-y-4">
+      {/* Suggested Questions */}
+      {messages.length === 0 && (
+        <Card className="border-none bg-gradient-to-br from-primary-50 to-secondary-50 dark:from-primary-900/20 dark:to-secondary-900/20">
+          <CardBody className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Perguntas sugeridas</h3>
             </div>
-          )}
-          
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              {message.role === 'assistant' && (
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-5 w-5 text-primary" />
+            <div className="flex flex-wrap gap-2">
+              {suggestedQuestions.map((q, i) => (
+                <Chip
+                  key={i}
+                  variant="flat"
+                  color="primary"
+                  className="cursor-pointer hover:bg-primary/20 transition-colors"
+                  onClick={() => handleSuggestionClick(q)}
+                >
+                  {q}
+                </Chip>
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
+      {/* Chat Messages */}
+      <Card className="border-none">
+        <CardBody className="p-0">
+          <div className="h-[500px] overflow-y-auto p-6 space-y-4">
+            {messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <div className="p-4 rounded-full bg-primary/10 mb-4">
+                  <Bot className="h-12 w-12 text-primary" />
                 </div>
-              )}
-              
-              <div
-                className={`max-w-[80%] rounded-2xl p-4 ${
-                  message.role === 'user'
-          ? 'bg-gradient-primary'
-          : 'bg-muted text-foreground'
-                }`}
-        style={message.role === 'user' ? { color: 'var(--ds-neutral-50)' } : undefined}
+                <h3 className="text-xl font-bold mb-2">Olá! Sou seu assistente nutricional</h3>
+                <p className="text-default-500 max-w-md">
+                  Faça perguntas sobre nutrição, planejamento alimentar, macros e muito mais!
+                </p>
+              </div>
+            ) : (
+              messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex gap-3 items-end ${
+                    message.role === "user" ? "flex-row-reverse" : "flex-row"
+                  }`}
+                >
+                  <Avatar
+                    icon={
+                      message.role === "user" ? (
+                        <User className="h-5 w-5" />
+                      ) : (
+                        <Bot className="h-5 w-5" />
+                      )
+                    }
+                    className={message.role === "user" ? "bg-primary" : "bg-secondary"}
+                  />
+                  <div
+                    className={`flex-1 max-w-[80%] p-4 rounded-2xl break-words ${
+                      message.role === "user"
+                        ? "bg-primary text-primary-foreground ml-auto"
+                        : "bg-default-100 text-foreground"
+                    }`}
+                  >
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    </div>
+                    <div className="mt-2 text-xs text-default-500 flex justify-end">
+                      {formatTime(message.timestamp)}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+
+            {/* Loading indicator for assistant thinking */}
+            {isLoading && (
+              <div className="flex gap-3">
+                <Avatar icon={<Bot className="h-5 w-5" />} className="bg-secondary" />
+                <div className="flex items-center gap-2 p-4 rounded-2xl bg-default-100">
+                  <Spinner size="sm" color="primary" />
+                  <span className="text-sm text-default-500">Pensando...</span>
+                </div>
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input Area */}
+          <div className="p-4 border-t border-divider">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Digite sua pergunta sobre nutrição..."
+                value={input}
+                onValueChange={setInput}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                disabled={isLoading}
+                variant="bordered"
+                size="lg"
+                classNames={{
+                  input: "text-base",
+                }}
+                aria-label="Mensagem para o assistente nutricional"
+              />
+              <Button
+                isIconOnly
+                color="primary"
+                onPress={() => handleSend()}
+                isDisabled={!input.trim() || isLoading}
+                size="lg"
+                className="bg-gradient-primary"
+                aria-label="Enviar mensagem"
               >
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-              </div>
-
-              {message.role === 'user' && (
-                <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
-                  <User className="h-5 w-5 text-accent" />
-                </div>
-              )}
+                {isLoading ? <Spinner size="sm" /> : <Send className="h-5 w-5" />}
+              </Button>
             </div>
-          ))}
-
-          {isLoading && (
-            <div className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <Bot className="h-5 w-5 text-primary" />
-              </div>
-              <div className="bg-muted rounded-2xl p-4">
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-primary/50 rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-primary/50 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                  <div className="w-2 h-2 bg-primary/50 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </ScrollArea>
-
-      <div className="p-4 border-t border-border/50">
-        <div className="flex gap-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Digite sua pergunta..."
-            disabled={isLoading}
-            className="flex-1"
-          />
-          <Button 
-            onClick={handleSend}
-            disabled={isLoading || !input.trim()}
-            className="bg-gradient-primary hover:opacity-90"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    </Card>
+          </div>
+        </CardBody>
+      </Card>
+    </div>
   );
 };
