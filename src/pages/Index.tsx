@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { MealCard } from '@/components/MealCard';
 import { DashboardStats } from '@/components/DashboardStats';
-import { ChatInterface } from '@/components/ChatInterface';
+
 import { EditMealDialog } from '@/components/EditMealDialog';
 import { useMealPlans } from '@/hooks/useMealPlans';
 import { storage } from '@/lib/localStorage';
@@ -32,6 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import ChatInterfacePro from '@/components/ChatInterfacePro';
 
 const Index = () => {
   const { 
@@ -263,7 +264,7 @@ const Index = () => {
               <h2 className="text-3xl font-bold">Chat com IA</h2>
               <p className="text-muted-foreground">Tire suas dúvidas sobre nutrição e planejamento</p>
             </div>
-            <ChatInterface />
+            <ChatInterfacePro />
           </TabsContent>
 
           {/* Gráficos */}
