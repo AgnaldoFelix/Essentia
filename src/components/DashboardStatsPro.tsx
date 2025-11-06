@@ -17,26 +17,36 @@ import {
   Spinner,
   Tooltip,
 } from "@heroui/react";
-import { Beef, Flame, TrendingUp, CheckCircle2, Clock } from "lucide-react";
-import { Meal } from "@/types/nutrition";
+import { Beef, Flame, TrendingUp, CheckCircle2, Clock, Target } from "lucide-react";
+import { Meal, DailyPlan } from "@/types/nutrition";
+
+import React from "react";
 
 interface DashboardStatsProProps {
   currentProtein: number;
   currentCalories: number;
-  proteinGoal: number;
-  caloriesGoal: number;
   meals: Meal[];
-  selectedPlanId: string;
+  selectedPlan: DailyPlan | null;
 }
 
 export const DashboardStatsPro = ({
   currentProtein,
   currentCalories,
-  proteinGoal,
-  caloriesGoal,
   meals,
-  selectedPlanId,
+  selectedPlan,
 }: DashboardStatsProProps) => {
+  // SEMPRE usar as metas do plano selecionado - ESSENCIAL!
+  const proteinGoal = selectedPlan?.proteinGoal || 150;
+  const caloriesGoal = selectedPlan?.caloriesGoal || 2000;
+
+  console.log('🔍 Dashboard Debug:', {
+    planName: selectedPlan?.name,
+    proteinGoal,
+    caloriesGoal,
+    currentProtein,
+    currentCalories
+  });
+
   const proteinPercentage = Math.min((currentProtein / proteinGoal) * 100, 100);
   const caloriesPercentage = Math.min(
     (currentCalories / caloriesGoal) * 100,
@@ -93,7 +103,10 @@ export const DashboardStatsPro = ({
                   <p className="text-small text-default-500">consumido</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xl font-semibold">{proteinGoal}g</p>
+                  <div className="flex items-center gap-2 justify-end">
+                    <Target className="h-4 w-4 text-primary" />
+                    <p className="text-xl font-semibold">{proteinGoal}g</p>
+                  </div>
                   <p className="text-small text-default-500">meta diária</p>
                 </div>
               </div>
@@ -151,7 +164,10 @@ export const DashboardStatsPro = ({
                   <p className="text-small text-default-500">consumido</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xl font-semibold">{caloriesGoal} kcal</p>
+                  <div className="flex items-center gap-2 justify-end">
+                    <Target className="h-4 w-4 text-warning" />
+                    <p className="text-xl font-semibold">{caloriesGoal} kcal</p>
+                  </div>
                   <p className="text-small text-default-500">meta diária</p>
                 </div>
               </div>
@@ -189,9 +205,7 @@ export const DashboardStatsPro = ({
               <div className="flex flex-col">
                 <p className="text-md font-semibold">Refeições do Dia</p>
                 <p className="text-small text-default-500">
-                  {selectedPlanId === "plan-15h"
-                    ? "Plano até 15h"
-                    : "Plano até 18h"}
+                  {selectedPlan?.name || "Plano atual"}
                 </p>
               </div>
               <Chip color="primary" variant="flat" className="ml-auto">
@@ -219,17 +233,17 @@ export const DashboardStatsPro = ({
                         color="primary"
                         variant="flat"
                         size="sm"
-                        startContent={<span className="text-xs">🥩</span>}
+                        startContent={<span className="text-xs">🎯</span>}
                       >
-                        150g
+                        {proteinGoal}g
                       </Chip>
                       <Chip
                         color="warning"
                         variant="flat"
                         size="sm"
-                        startContent={<span className="text-xs">🔥</span>}
+                        startContent={<span className="text-xs">🎯</span>}
                       >
-                        2000
+                        {caloriesGoal}
                       </Chip>
                     </div>
                   </div>
@@ -254,7 +268,7 @@ export const DashboardStatsPro = ({
                     topContent={
                       <div className="flex justify-between items-center p-4">
                         <h2 className="text-xl font-bold text-default-800">
-                          Plano Alimentar
+                          Plano Alimentar - {selectedPlan?.name || "Plano atual"}
                         </h2>
                         <Chip color="primary" variant="flat" size="sm">
                           {new Date().toLocaleDateString("pt-BR")}
@@ -268,26 +282,26 @@ export const DashboardStatsPro = ({
                             {sortedMeals.length} refeições programadas
                           </span>
                           <div className="flex gap-3">
-                            <Tooltip content="Meta de proteína diária">
+                            <Tooltip content={`Meta de proteína diária: ${proteinGoal}g`}>
                               <Chip
                                 color="primary"
                                 variant="flat"
                                 startContent={
-                                  <span className="text-xs">🥩</span>
+                                  <span className="text-xs">🎯</span>
                                 }
                               >
-                                Meta: 150g
+                                Meta: {proteinGoal}g
                               </Chip>
                             </Tooltip>
-                            <Tooltip content="Meta calórica diária">
+                            <Tooltip content={`Meta calórica diária: ${caloriesGoal} kcal`}>
                               <Chip
                                 color="warning"
                                 variant="flat"
                                 startContent={
-                                  <span className="text-xs">🔥</span>
+                                  <span className="text-xs">🎯</span>
                                 }
                               >
-                                Meta: 2000 kcal
+                                Meta: {caloriesGoal} kcal
                               </Chip>
                             </Tooltip>
                           </div>
@@ -317,137 +331,84 @@ export const DashboardStatsPro = ({
                           </p>
                         </div>
                       }
-                      loadingContent={
-                        <div className="flex justify-center items-center py-8">
-                          <Spinner size="lg" />
-                        </div>
-                      }
                     >
-                      <>
-                        {sortedMeals.map((meal, index) => (
-                          <TableRow
-                            key={meal.id}
-                            className="group"
-                            data-odd={index % 2 === 0 ? false : true}
-                          >
-                            <TableCell>
-                              <div className="flex flex-col items-center">
-                                <Chip
-                                  size="sm"
-                                  variant="flat"
-                                  color="secondary"
-                                  className="font-mono text-xs"
-                                >
-                                  {meal.time}
-                                </Chip>
+                     {sortedMeals.map((meal, index) => (
+                        <React.Fragment key={meal.id}>
+                        <TableRow
+                          key={meal.id}
+                          className="group"
+                        >
+                          <TableCell>
+                            <div className="flex flex-col items-center">
+                              <Chip
+                                size="sm"
+                                variant="flat"
+                                color="secondary"
+                                className="font-mono text-xs"
+                              >
+                                {meal.time}
+                              </Chip>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="flex-shrink-0 w-8 h-8 bg-default-100 rounded-lg flex items-center justify-center">
+                                <span className="text-sm">{meal.emoji}</span>
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                <div className="flex-shrink-0 w-8 h-8 bg-default-100 rounded-lg flex items-center justify-center">
-                                  <span className="text-sm">{meal.emoji}</span>
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="font-medium text-default-800">
-                                    {meal.name}
+                              <div className="flex flex-col">
+                                <span className="font-medium text-default-800">
+                                  {meal.name}
+                                </span>
+                                {meal.description && (
+                                  <span className="text-xs text-default-500">
+                                    {meal.description}
                                   </span>
-                                  {meal.description && (
-                                    <span className="text-xs text-default-500">
-                                      {meal.description}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-wrap gap-2">
-                                {meal.foods.map(
-                                  (
-                                    food: { name: string; quantity?: number },
-                                    index
-                                  ) => (
-                                    <Tooltip
-                                      key={index}
-                                      content={`${food.name}${
-                                        food.quantity
-                                          ? ` - ${food.quantity}g`
-                                          : ""
-                                      }`}
-                                    >
-                                      <Chip
-                                        size="sm"
-                                        variant="flat"
-                                        color="default"
-                                        className="max-w-32 truncate transition-all hover:scale-105"
-                                      >
-                                        {food.quantity
-                                          ? `${food.name} (${food.quantity}g)`
-                                          : food.name}
-                                      </Chip>
-                                    </Tooltip>
-                                  )
                                 )}
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex justify-center">
-                                <Chip
-                                  color="primary"
-                                  variant="flat"
-                                  size="sm"
-                                  startContent={
-                                    <span className="text-xs">🥩</span>
-                                  }
-                                  className="font-semibold"
-                                >
-                                  {meal.protein}g
-                                </Chip>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex justify-center">
-                                <Chip
-                                  color="warning"
-                                  variant="flat"
-                                  size="sm"
-                                  startContent={
-                                    <span className="text-xs">🔥</span>
-                                  }
-                                  className="font-semibold"
-                                >
-                                  {meal.calories}
-                                </Chip>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-
-                        <TableRow className="bg-default-100 border-t-2 border-default-300">
-                          <TableCell
-                            colSpan={3}
-                            className="text-right font-bold py-4"
-                          >
-                            <div className="flex items-center justify-end gap-2">
-                              <span>Total do Dia</span>
-                              <Progress
-                                size="sm"
-                                value={(currentProtein / 150) * 100}
-                                className="max-w-24"
-                                color="primary"
-                              />
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-2">
+                              {meal.foods.map(
+                                (
+                                  food: { name: string; amount?: string },
+                                  index
+                                ) => (
+                                  <Tooltip
+                                    key={index}
+                                    content={`${food.name}${
+                                      food.amount
+                                        ? ` - ${food.amount}`
+                                        : ""
+                                    }`}
+                                  >
+                                    <Chip
+                                      size="sm"
+                                      variant="flat"
+                                      color="default"
+                                      className="max-w-32 truncate transition-all hover:scale-105"
+                                    >
+                                      {food.amount
+                                        ? `${food.name} (${food.amount})`
+                                        : food.name}
+                                    </Chip>
+                                  </Tooltip>
+                                )
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex justify-center">
                               <Chip
                                 color="primary"
-                                variant="solid"
+                                variant="flat"
+                                size="sm"
                                 startContent={
-                                  <span className="text-xs">📊</span>
+                                  <span className="text-xs">🥩</span>
                                 }
-                                className="font-bold shadow-md"
+                                className="font-semibold"
                               >
-                                {currentProtein}g
+                                {meal.protein}g
                               </Chip>
                             </div>
                           </TableCell>
@@ -455,19 +416,68 @@ export const DashboardStatsPro = ({
                             <div className="flex justify-center">
                               <Chip
                                 color="warning"
-                                variant="solid"
+                                variant="flat"
+                                size="sm"
                                 startContent={
-                                  <span className="text-xs">📊</span>
+                                  <span className="text-xs">🔥</span>
                                 }
-                                className="font-bold shadow-md"
+                                className="font-semibold"
                               >
-                                {currentCalories}
+                                {meal.calories}
                               </Chip>
                             </div>
                           </TableCell>
                         </TableRow>
-                      </>
+                      ))
+
+                      <TableRow className="bg-default-100 border-t-2 border-default-300">
+                        <TableCell
+                          colSpan={3}
+                          className="text-right font-bold py-4"
+                        >
+                          <div className="flex items-center justify-end gap-2">
+                            <span>Total do Dia</span>
+                            <Progress
+                              size="sm"
+                              value={proteinPercentage}
+                              className="max-w-24"
+                              color="primary"
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-center">
+                            <Chip
+                              color="primary"
+                              variant="solid"
+                              startContent={
+                                <span className="text-xs">📊</span>
+                              }
+                              className="font-bold shadow-md"
+                            >
+                              {currentProtein}g
+                            </Chip>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-center">
+                            <Chip
+                              color="warning"
+                              variant="solid"
+                              startContent={
+                                <span className="text-xs">📊</span>
+                              }
+                              className="font-bold shadow-md"
+                            >
+                              {currentCalories}
+                            </Chip>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                       </React.Fragment>
+                      ))}
                     </TableBody>
+                   
                   </Table>
                 </div>
 
@@ -524,7 +534,7 @@ export const DashboardStatsPro = ({
                             <div className="flex flex-wrap gap-1">
                               {meal.foods.map(
                                 (
-                                  food: { name: string; quantity?: number },
+                                  food: { name: string; amount?: string },
                                   index
                                 ) => (
                                   <Chip
@@ -534,8 +544,8 @@ export const DashboardStatsPro = ({
                                     color="default"
                                     className="text-xs max-w-28 truncate"
                                   >
-                                    {food.quantity
-                                      ? `${food.name} (${food.quantity}g)`
+                                    {food.amount
+                                      ? `${food.name} (${food.amount})`
                                       : food.name}
                                   </Chip>
                                 )
@@ -610,12 +620,12 @@ export const DashboardStatsPro = ({
                               Progresso de Proteína
                             </span>
                             <span className="font-medium">
-                              {currentProtein}/150g
+                              {currentProtein}/{proteinGoal}g
                             </span>
                           </div>
                           <Progress
                             size="sm"
-                            value={(currentProtein / 150) * 100}
+                            value={proteinPercentage}
                             color="primary"
                             className="w-full"
                           />

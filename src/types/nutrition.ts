@@ -14,6 +14,7 @@ export interface FoodItem {
   name: string;
   amount: string;
   protein: number;
+  unit: string;
   calories: number;
 }
 
@@ -23,6 +24,8 @@ export interface DailyPlan {
   meals: Meal[];
   totalProtein: number;
   totalCalories: number;
+  proteinGoal: number;  // Adicione esta linha
+  caloriesGoal: number; // Adicione esta linha
 }
 
 export interface MealLog {
@@ -31,6 +34,8 @@ export interface MealLog {
   mealId: string;
   completed: boolean;
   notes?: string;
+  totalProtein: number;
+  totalCalories: number;
 }
 
 export interface UserProfile {

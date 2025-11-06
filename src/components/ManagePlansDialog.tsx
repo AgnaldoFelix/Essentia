@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Copy, Trash2, Edit, Check, X } from 'lucide-react';
+import { Plus, Copy, Trash2, Edit, Check, X, Target, Flame } from 'lucide-react';
 
 interface ManagePlansDialogProps {
   isOpen: boolean;
@@ -34,6 +34,8 @@ export const ManagePlansDialog = ({
   const [newPlanName, setNewPlanName] = useState('');
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [editPlanName, setEditPlanName] = useState('');
+  const [editProteinGoal, setEditProteinGoal] = useState(150);
+  const [editCaloriesGoal, setEditCaloriesGoal] = useState(2000);
   const { toast } = useToast();
 
   const handleCreatePlan = () => {
@@ -46,6 +48,7 @@ export const ManagePlansDialog = ({
       return;
     }
 
+    // Criar plano com metas padrão
     const newPlanId = onCreatePlan(newPlanName.trim());
     setNewPlanName('');
     
@@ -60,6 +63,8 @@ export const ManagePlansDialog = ({
   const handleStartEdit = (plan: DailyPlan) => {
     setEditingPlanId(plan.id);
     setEditPlanName(plan.name);
+    setEditProteinGoal(plan.proteinGoal || 150);
+    setEditCaloriesGoal(plan.caloriesGoal || 2000);
   };
 
   const handleSaveEdit = (planId: string) => {
@@ -72,19 +77,34 @@ export const ManagePlansDialog = ({
       return;
     }
 
-    onUpdatePlan(planId, { name: editPlanName.trim() });
+    if (editProteinGoal <= 0 || editCaloriesGoal <= 0) {
+      toast({
+        title: "Metas inválidas",
+        description: "As metas de proteína e calorias devem ser maiores que zero",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    onUpdatePlan(planId, { 
+      name: editPlanName.trim(),
+      proteinGoal: editProteinGoal,
+      caloriesGoal: editCaloriesGoal
+    });
     setEditingPlanId(null);
     setEditPlanName('');
     
     toast({
       title: "Plano atualizado",
-      description: "Nome do plano atualizado com sucesso",
+      description: "Metas atualizadas com sucesso",
     });
   };
 
   const handleCancelEdit = () => {
     setEditingPlanId(null);
     setEditPlanName('');
+    setEditProteinGoal(150);
+    setEditCaloriesGoal(2000);
   };
 
   const handleDuplicatePlan = (plan: DailyPlan) => {
@@ -163,49 +183,99 @@ export const ManagePlansDialog = ({
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     {editingPlanId === plan.id ? (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={editPlanName}
-                          onChange={(e) => setEditPlanName(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && handleSaveEdit(plan.id)}
-                          className="flex-1"
-                          autoFocus
-                        />
-                        <Button 
-                          size="sm" 
-                          onClick={() => handleSaveEdit(plan.id)}
-                          variant="ghost"
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          onClick={handleCancelEdit}
-                          variant="ghost"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={editPlanName}
+                            onChange={(e) => setEditPlanName(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && handleSaveEdit(plan.id)}
+                            className="flex-1"
+                            autoFocus
+                          />
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleSaveEdit(plan.id)}
+                            variant="ghost"
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            onClick={handleCancelEdit}
+                            variant="ghost"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        
+                        {/* Metas de proteína e calorias */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium flex items-center gap-2">
+                              <Target className="h-4 w-4 text-blue-500" />
+                              Meta de Proteína (g)
+                            </label>
+                            <Input
+                              type="number"
+                              value={editProteinGoal}
+                              onChange={(e) => setEditProteinGoal(Number(e.target.value))}
+                              min="1"
+                              className="w-full"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium flex items-center gap-2">
+                              <Flame className="h-4 w-4 text-orange-500" />
+                              Meta de Calorias (kcal)
+                            </label>
+                            <Input
+                              type="number"
+                              value={editCaloriesGoal}
+                              onChange={(e) => setEditCaloriesGoal(Number(e.target.value))}
+                              min="1"
+                              className="w-full"
+                            />
+                          </div>
+                        </div>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-semibold text-lg">{plan.name}</h3>
-                        {selectedPlanId === plan.id && (
-                          <Badge variant="secondary">Selecionado</Badge>
-                        )}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-semibold text-lg">{plan.name}</h3>
+                          {selectedPlanId === plan.id && (
+                            <Badge variant="secondary">Selecionado</Badge>
+                          )}
+                        </div>
+                        
+                        {/* Metas atuais */}
+                        <div className="flex flex-wrap gap-3">
+                          <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full">
+                            <Target className="h-3 w-3 text-blue-500" />
+                            <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                              Meta: {plan.proteinGoal || 150}g proteína
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 px-3 py-1 rounded-full">
+                            <Flame className="h-3 w-3 text-orange-500" />
+                            <span className="text-sm font-medium text-orange-700 dark:text-orange-300">
+                              Meta: {plan.caloriesGoal || 2000} kcal
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="outline">
+                            🍗 {plan.meals.length} refeições
+                          </Badge>
+                          <Badge variant="secondary">
+                            💪 {plan.totalProtein}g proteína
+                          </Badge>
+                          <Badge variant="secondary">
+                            🔥 {plan.totalCalories} kcal
+                          </Badge>
+                        </div>
                       </div>
                     )}
-                    
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      <Badge variant="outline">
-                        🍗 {plan.meals.length} refeições
-                      </Badge>
-                      <Badge variant="secondary">
-                        💪 {plan.totalProtein}g proteína
-                      </Badge>
-                      <Badge variant="secondary">
-                        🔥 {plan.totalCalories} kcal
-                      </Badge>
-                    </div>
                   </div>
 
                   {editingPlanId !== plan.id && (

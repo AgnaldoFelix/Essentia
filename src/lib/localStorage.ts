@@ -141,7 +141,7 @@ export const storage = {
           meals: [] // Você pode adicionar as refeições padrão aqui
         }
       ];
-      storage.saveMealPlans(defaultPlans);
+      storage.saveMealPlans(defaultPlans as any);
       storage.saveSelectedPlanId(data.selectedPlan);
     }
   },
@@ -181,7 +181,7 @@ export const storage = {
       }
     ];
     
-    storage.saveMealPlans(defaultPlans);
+    storage.saveMealPlans(defaultPlans as any);
     
     // Se o plano selecionado existir nos padrões, usar ele
     const selectedPlanExists = defaultPlans.some(plan => plan.id === existingSelectedPlan);

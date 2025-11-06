@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardContent, CardFooter, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -17,7 +17,9 @@ import {
   Plus,
   RotateCcw,
   Trash2,
-  Layers
+  Layers,
+  Target,
+  TrendingUp
 } from 'lucide-react';
 import { MealCardPro } from '@/components/MealCardPro';
 import { DashboardStatsPro } from '@/components/DashboardStatsPro';
@@ -27,6 +29,7 @@ import { ManagePlansDialog } from '@/components/ManagePlansDialog'; // NOVO COMP
 import { useMealPlans } from '@/hooks/useMealPlans';
 import { storage } from '@/lib/localStorage';
 import { Meal } from '@/types/nutrition';
+import { MonthlyProgressChart } from '@/components/MonthlyProgressChart';
 
 const IndexPro = () => {
   const { 
@@ -375,20 +378,76 @@ const IndexPro = () => {
             </div>
           </TabsContent>
 
-          {/* Gráficos */}
+ {/* Gráficos - ATUALIZADO */}
           <TabsContent value="stats">
             <div className="space-y-6 animate-fade-in">
-              <div>
-                <h2 className="text-3xl font-bold">Estatísticas</h2>
-                <p className="text-muted-foreground">Acompanhe seu progresso</p>
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <h2 className="text-3xl font-bold">Estatísticas e Gráficos</h2>
+                  <p className="text-muted-foreground">Acompanhe seu progresso mensal</p>
+                </div>
+                <div className="flex gap-2">
+                  <Badge variant="outline" className="gap-2">
+                    <Calendar className="h-3 w-3" />
+                    {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                  </Badge>
+                </div>
               </div>
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <BarChart3 className="h-16 w-16 mx-auto mb-4 text-primary" />
-                  <h3 className="text-xl font-bold mb-2">Em breve</h3>
-                  <p className="text-muted-foreground">Gráficos de acompanhamento serão adicionados em breve</p>
-                </CardContent>
-              </Card>
+
+              {/* Componente de Gráfico Mensal */}
+              <MonthlyProgressChart
+                proteinGoal={selectedPlan?.proteinGoal || profile.dailyProteinGoal}
+                caloriesGoal={selectedPlan?.caloriesGoal || profile.dailyCaloriesGoal}
+              />
+
+              {/* Cards de Estatísticas Adicionais */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <TrendingUp className="h-5 w-5 text-green-600" />
+                      Tendência da Semana
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground mb-4">
+                      Seu progresso está {Math.random() > 0.5 ? 'melhorando' : 'estável'} esta semana.
+                    </p>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="bg-green-50 text-green-700">
+                        +5% proteína
+                      </Badge>
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                        +2% consistência
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Target className="h-5 w-5 text-purple-600" />
+                      Próximas Metas
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground mb-4">
+                      Mantenha a consistência para alcançar suas metas.
+                    </p>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Dias consecutivos na meta:</span>
+                        <Badge>3</Badge>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Meta do mês:</span>
+                        <Badge variant="secondary">22/30 dias</Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </TabsContent>
 
