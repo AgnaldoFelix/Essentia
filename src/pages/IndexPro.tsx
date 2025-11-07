@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+// pages/IndexPro.tsx
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardHeader, CardContent, CardFooter, CardTitle } from '@/components/ui/card';
@@ -25,11 +26,13 @@ import { MealCardPro } from '@/components/MealCardPro';
 import { DashboardStatsPro } from '@/components/DashboardStatsPro';
 import { ChatInterfacePro } from '@/components/ChatInterfacePro';
 import { EditMealDialogPro } from '@/components/EditMealDialogPro';
-import { ManagePlansDialog } from '@/components/ManagePlansDialog'; // NOVO COMPONENTE
+import { ManagePlansDialog } from '@/components/ManagePlansDialog';
 import { useMealPlans } from '@/hooks/useMealPlans';
 import { storage } from '@/lib/localStorage';
 import { Meal } from '@/types/nutrition';
 import { MonthlyProgressChart } from '@/components/MonthlyProgressChart';
+import { ProfilePage } from '@/components/ProfilePage';
+import { UserProfile } from '@/types/gamification';
 
 const IndexPro = () => {
   const { 
@@ -40,12 +43,33 @@ const IndexPro = () => {
     addMeal,
     deleteMeal,
     selectPlan,
-    createNewPlan, // NOVA FUNÇÃO
-    updatePlan, // NOVA FUNÇÃO
-    deletePlan, // NOVA FUNÇÃO
-    duplicatePlan, // NOVA FUNÇÃO
-    resetToDefault 
+    createNewPlan,
+    updatePlan,
+    deletePlan,
+    duplicatePlan,
+    resetToDefault
   } = useMealPlans();
+
+  // Estados para gamificação
+  const [medals, setMedals] = useState<any[]>([]);
+  const [userProfile, setUserProfile] = useState<UserProfile>({
+    id: '1',
+    name: 'Usuário',
+    nickname: 'user',
+    age: 25,
+    gender: 'other',
+    weight: 70,
+    height: 170,
+    initialWeight: 70,
+    weightGoal: 75,
+    activityLevel: 'moderate',
+    objective: 'maintain',
+    dailyProteinGoal: 150,
+    dailyCaloriesGoal: 2000,
+    avatar: '',
+    createdAt: new Date(),
+    bmi: 24.2
+  });
   
   const [activeTab, setActiveTab] = useState('home');
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
@@ -53,11 +77,31 @@ const IndexPro = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [mealToDelete, setMealToDelete] = useState<string | null>(null);
   const [dayProgress, setDayProgress] = useState(0);
-  const [managePlansOpen, setManagePlansOpen] = useState(false); // NOVO ESTADO
+  const [managePlansOpen, setManagePlansOpen] = useState(false);
 
   const { toast } = useToast();
 
-  const profile = storage.getUserProfile();
+  // Carregar perfil do usuário
+  useEffect(() => {
+    const savedProfile = storage.getUserProfile();
+    if (savedProfile) {
+      setUserProfile(savedProfile);
+    }
+  }, []);
+
+  // Funções de gamificação
+  const addMedal = (medal: any) => {
+    const newMedal = {
+      ...medal,
+      id: `medal-${Date.now()}`
+    };
+    setMedals(prev => [newMedal, ...prev]);
+  };
+
+  const updateProfile = (profile: UserProfile) => {
+    setUserProfile(profile);
+    storage.saveUserProfile(profile);
+  };
 
   // Calcular progresso do dia
   useEffect(() => {
@@ -68,14 +112,14 @@ const IndexPro = () => {
       const currentTimeInMinutes = currentHour * 60 + currentMinute;
       
       // Horário de início (7h00)
-      const startTime = 7 * 60; // 7:00 em minutos
+      const startTime = 7 * 60;
       
-      // Horário final - agora usa o último horário do plano selecionado
+      // Horário final - usa o último horário do plano selecionado
       const mealTimes = selectedPlan.meals.map(meal => {
         const [hours, minutes] = meal.time.split(':').map(Number);
         return hours * 60 + minutes;
       });
-      const endTime = Math.max(...mealTimes) || 18 * 60; // Fallback para 18h
+      const endTime = Math.max(...mealTimes) || 18 * 60;
       
       // Calcular progresso
       const totalMinutes = endTime - startTime;
@@ -86,7 +130,7 @@ const IndexPro = () => {
     };
 
     calculateDayProgress();
-    const interval = setInterval(calculateDayProgress, 60000); // Atualizar a cada minuto
+    const interval = setInterval(calculateDayProgress, 60000);
     
     return () => clearInterval(interval);
   }, [selectedPlanId, selectedPlan.meals]);
@@ -96,7 +140,7 @@ const IndexPro = () => {
     { icon: Calendar, label: 'Planejamento', value: 'plan' },
     { icon: MessageSquare, label: 'Chat IA', value: 'chat' },
     { icon: BarChart3, label: 'Gráficos', value: 'stats' },
-    { icon: Settings, label: 'Perfil', value: 'settings' }
+    { icon: Settings, label: 'Perfil', value: 'profile' }
   ];
 
   const handleEditMeal = (meal: Meal) => {
@@ -170,7 +214,6 @@ const IndexPro = () => {
       <header className="sticky top-0 z-50 w-full border-b border-divider bg-background/70 backdrop-blur-lg">
         <div className="container max-w-7xl mx-auto flex h-20 items-center justify-between px-4">
           <div className="flex items-center gap-4">
-            {/* Logo melhorada */}
             <div className="relative">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg">
                 <span className="text-2xl">🥗</span>
@@ -179,9 +222,7 @@ const IndexPro = () => {
             </div>
             
             <div className="flex flex-col gap-1.5">
-              <h1 className="text-xl font-bold ">
-                Essentia
-              </h1>
+              <h1 className="text-xl font-bold">Essentia</h1>
               <p className="text-xs text-default-500">
                 Seu planejamento nutricional profissional
               </p>
@@ -217,7 +258,7 @@ const IndexPro = () => {
             <TabsTrigger value="plan">Planejamento</TabsTrigger>
             <TabsTrigger value="chat">Chat IA</TabsTrigger>
             <TabsTrigger value="stats">Gráficos</TabsTrigger>
-            <TabsTrigger value="settings">Perfil</TabsTrigger>
+            <TabsTrigger value="profile">Perfil</TabsTrigger>
           </TabsList>
 
           {/* Dashboard */}
@@ -241,13 +282,11 @@ const IndexPro = () => {
               </div>
 
               <DashboardStatsPro
-                currentProtein={selectedPlan.totalProtein}
-                currentCalories={selectedPlan.totalCalories}
-                proteinGoal={profile.dailyProteinGoal}
-                caloriesGoal={profile.dailyCaloriesGoal}
-                meals={selectedPlan.meals}
-                selectedPlanId={selectedPlanId}
+                currentProtein={selectedPlan.totalProtein || 0}
+                currentCalories={selectedPlan.totalCalories || 0}
+                meals={selectedPlan.meals || []}
                 selectedPlan={selectedPlan}
+                onMedalEarned={addMedal}
               />
 
               <div>
@@ -378,7 +417,7 @@ const IndexPro = () => {
             </div>
           </TabsContent>
 
- {/* Gráficos - ATUALIZADO */}
+          {/* Gráficos */}
           <TabsContent value="stats">
             <div className="space-y-6 animate-fade-in">
               <div className="flex items-center justify-between flex-wrap gap-4">
@@ -394,13 +433,11 @@ const IndexPro = () => {
                 </div>
               </div>
 
-              {/* Componente de Gráfico Mensal */}
               <MonthlyProgressChart
-                proteinGoal={selectedPlan?.proteinGoal || profile.dailyProteinGoal}
-                caloriesGoal={selectedPlan?.caloriesGoal || profile.dailyCaloriesGoal}
+                proteinGoal={selectedPlan?.proteinGoal || userProfile.dailyProteinGoal}
+                caloriesGoal={selectedPlan?.caloriesGoal || userProfile.dailyCaloriesGoal}
               />
 
-              {/* Cards de Estatísticas Adicionais */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
@@ -452,46 +489,12 @@ const IndexPro = () => {
           </TabsContent>
 
           {/* Perfil */}
-          <TabsContent value="settings">
-            <div className="space-y-6 animate-fade-in">
-              <div>
-                <h2 className="text-3xl font-bold">Perfil</h2>
-                <p className="text-muted-foreground">Suas metas e configurações</p>
-              </div>
-              <div className="grid md:grid-cols-2 gap-6">
-                <Card>
-                  <CardContent className="p-6">
-                    <h3 className="text-lg font-bold mb-4">Metas Diárias</h3>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Proteína</span>
-                        <Badge variant="secondary">{profile.dailyProteinGoal}g</Badge>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Calorias</span>
-                        <Badge variant="secondary">{profile.dailyCaloriesGoal} kcal</Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-6">
-                    <h3 className="text-lg font-bold mb-4">Informações</h3>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Peso Atual</span>
-                        <span className="font-bold">{profile.weight || '-'} kg</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Meta de Peso</span>
-                        <span className="font-bold">{profile.weightGoal || '-'} kg</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+          <TabsContent value="profile">
+            <ProfilePage
+              profile={userProfile}
+              onProfileUpdate={updateProfile}
+              medals={medals}
+            />
           </TabsContent>
         </Tabs>
 
@@ -539,7 +542,7 @@ const IndexPro = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Manage Plans Modal - NOVO COMPONENTE */}
+        {/* Manage Plans Modal */}
         <ManagePlansDialog
           isOpen={managePlansOpen}
           onOpenChange={setManagePlansOpen}
