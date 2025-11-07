@@ -24,13 +24,15 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
-  useDisclosure
+  useDisclosure,
+  Switch
 } from "@heroui/react";
-import { Beef, Flame, TrendingUp, CheckCircle2, Clock, Target, Award, Trophy, Star } from "lucide-react";
+import { Beef, Flame, TrendingUp, CheckCircle2, Clock, Target, Award, Trophy, Star, Bell, TestTube } from "lucide-react";
 import { Meal, DailyPlan } from "@/types/nutrition";
 import { MedalSystem } from '@/utils/medals';
 import { Confetti } from '@/components/Confetti';
 import { Medal } from '@/types/gamification';
+import { useMealNotifications } from '@/hooks/useMealNotifications';
 
 interface DashboardStatsProProps {
   currentProtein: number;
@@ -66,8 +68,18 @@ export const DashboardStatsPro = ({
   const caloriesRemaining = Math.max(caloriesGoal - currentCalories, 0);
 
   const { isOpen: isMedalOpen, onOpen: onMedalOpen, onClose: onMedalClose } = useDisclosure();
+  const { isOpen: isNotificationsOpen, onOpen: onNotificationsOpen, onClose: onNotificationsClose } = useDisclosure();
+  
   const [currentMedal, setCurrentMedal] = useState<MedalData | null>(null);
   const [shownMedals, setShownMedals] = useState<Set<string>>(new Set());
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
+
+  // Hook de notificações das refeições
+  const { 
+    requestNotificationPermission, 
+    sendTestNotification,
+    getScheduledNotifications 
+  } = useMealNotifications(notificationsEnabled ? meals : [], selectedPlan?.name || 'Plano Atual');
 
   // Ordenar refeições por horário
   const sortedMeals = [...meals].sort((a, b) => {
@@ -143,6 +155,16 @@ export const DashboardStatsPro = ({
     }
   }, [proteinPercentage, caloriesPercentage, onMedalEarned, onMedalOpen, shownMedals]);
 
+  // Função para testar notificações
+  const handleTestNotification = async () => {
+    const hasPermission = await requestNotificationPermission();
+    if (hasPermission && meals.length > 0) {
+      sendTestNotification(meals[0]);
+    } else {
+      alert('Por favor, permita notificações para receber lembretes de refeições! 🔔');
+    }
+  };
+
   const getProgressColor = (percentage: number) => {
     if (percentage >= 100) return 'success';
     if (percentage >= 75) return 'primary';
@@ -162,6 +184,113 @@ export const DashboardStatsPro = ({
       </Tooltip>
     );
   };
+
+  // Modal de configuração de notificações
+  const NotificationsModal = () => (
+    <Modal isOpen={isNotificationsOpen} onClose={onNotificationsClose} size="lg">
+      <ModalContent>
+        <ModalHeader className="flex items-center gap-2">
+          <div className="p-2 bg-orange-100 rounded-lg">
+            <Bell className="h-5 w-5 text-orange-600" />
+          </div>
+          <h3 className="text-xl font-bold text-orange-800">Lembretes de Refeições</h3>
+        </ModalHeader>
+        <ModalBody>
+          <div className="space-y-6">
+            <div className="text-center">
+              <div className="text-4xl mb-2">🍽️⏰</div>
+              <p className="text-default-600">
+                Receba lembretes automáticos para suas refeições!
+              </p>
+            </div>
+
+            {/* Switch de ativação */}
+            <div className="flex items-center justify-between p-4 bg-orange-50 rounded-xl border border-orange-200">
+              <div>
+                <p className="font-semibold text-orange-800">Notificações de Refeições</p>
+                <p className="text-sm text-orange-600">
+                  Receba alertas 30 minutos antes e na hora de cada refeição
+                </p>
+              </div>
+              <Switch
+                isSelected={notificationsEnabled}
+                onValueChange={setNotificationsEnabled}
+                color="warning"
+                size="lg"
+              />
+            </div>
+
+            {/* Botão de teste */}
+            <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-yellow-800">Testar Notificações</p>
+                  <p className="text-sm text-yellow-600">
+                    Verifique se as notificações estão funcionando
+                  </p>
+                </div>
+                <Button
+                  color="warning"
+                  variant="flat"
+                  onPress={handleTestNotification}
+                  className="gap-2"
+                  isDisabled={!notificationsEnabled || meals.length === 0}
+                  startContent={<TestTube className="h-4 w-4" />}
+                >
+                  Testar
+                </Button>
+              </div>
+            </div>
+
+            {/* Lista de refeições agendadas */}
+            <div className="space-y-4 overflow-y-auto max-h-64">
+              <h4 className="font-semibold text-default-800">Refeições Programadas</h4>
+              {meals.length === 0 ? (
+                <div className="text-center py-4">
+                  <p className="text-default-500">Nenhuma refeição cadastrada</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {sortedMeals.map(meal => (
+                    <div key={meal.id} className="flex items-center gap-3 p-3 bg-default-100 rounded-lg">
+                      <div className="text-2xl">{meal.emoji}</div>
+                      <div className="flex-1">
+                        <p className="font-medium text-default-800">{meal.name}</p>
+                        <p className="text-sm text-default-600">{meal.time}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-default-700">Notificações:</p>
+                        <p className="text-xs text-default-500">30min antes + horário</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Informações */}
+            <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+              <p className="text-sm text-green-700 text-center">
+                💡 <strong>Funcionalidade:</strong> Você receberá notificações 30 minutos antes e no horário exato de cada refeição do seu plano atual!
+              </p>
+            </div>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="light" onPress={onNotificationsClose}>
+            Fechar
+          </Button>
+          <Button 
+            color="warning" 
+            onPress={onNotificationsClose}
+            className="bg-gradient-to-r from-orange-500 to-yellow-500"
+          >
+            Salvar Configurações
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  );
 
   const MedalModal = () => (
     <Modal 
@@ -216,6 +345,25 @@ export const DashboardStatsPro = ({
   return (
     <>
       <div className="flex w-full flex-col gap-6">
+        {/* Header com botão de notificações */}
+        <div className="flex justify-between items-center">
+          <Tabs aria-label="Metas Nutricionais" className="relative flex-1">
+            {/* Suas tabs existentes aqui - mantendo o mesmo código */}
+          </Tabs>
+          
+          {/* Botão de configurações de notificação */}
+          <Button
+            color="warning"
+            variant="flat"
+            onPress={onNotificationsOpen}
+            className="flex flex-start ml-4 gap-2"
+            startContent={<Bell className="h-4 w-4" />}
+          >
+            Lembretes
+          </Button>
+        </div>
+
+        {/* Resto do seu código existente do DashboardStatsPro */}
         <Tabs aria-label="Metas Nutricionais" className="relative">
           <Tab
             key="proteina"
@@ -227,7 +375,7 @@ export const DashboardStatsPro = ({
               </div>
             }
           >
-            <Card className="w-full border-2 border-default-200/50 shadow-lg hover:shadow-xl transition-shadow">
+                        <Card className="w-full border-2 border-default-200/50 shadow-lg hover:shadow-xl transition-shadow">
               <CardHeader className="flex gap-3 border-b p-4 bg-gradient-to-r from-blue-50 to-purple-50">
                 <div className="p-2 bg-primary/10 rounded-lg">
                   <Beef className="h-6 w-6 text-primary" />
@@ -401,7 +549,7 @@ export const DashboardStatsPro = ({
               </div>
             }
           >
-            <Card className="w-full border-2 border-default-200/50 shadow-lg">
+                        <Card className="w-full border-2 border-default-200/50 shadow-lg">
               <CardHeader className="flex gap-3 border-b p-4 bg-gradient-to-r from-green-50 to-emerald-50">
                 <div className="p-2 bg-primary/10 rounded-lg">
                   <Clock className="h-6 w-6 text-primary" />
@@ -453,219 +601,166 @@ export const DashboardStatsPro = ({
                     </div>
                   </div>
 
-                  {/* Table - Desktop */}
-                  <div className="hidden md:block">
-                    <Table
-                      aria-label="Plano alimentar diário"
-                      isStriped
-                      isHeaderSticky
-                      selectionMode="none"
-                      className="min-w-full"
-                      classNames={{
-                        base: "shadow-lg rounded-2xl border border-default-200",
-                        table: "min-w-full",
-                        thead: "[&>tr]:first:rounded-lg",
-                        th: "bg-default-100 text-default-700 font-bold text-sm py-4",
-                        td: "py-3 border-b border-default-100",
-                        tr: "hover:bg-default-50 transition-colors",
-                      }}
-                      topContent={
-                        <div className="flex justify-between items-center p-4">
-                          <h2 className="text-xl font-bold text-default-800">
-                            Plano Alimentar - {selectedPlan?.name || "Plano atual"}
-                          </h2>
-                          <div className="flex items-center gap-3">
-                            <Chip color="primary" variant="flat" size="sm">
-                              {new Date().toLocaleDateString("pt-BR")}
-                            </Chip>
-                            {getMedalForPercentage(proteinPercentage) && (
-                              <Tooltip content="Medalha conquistada hoje!">
-                                {getMedalForPercentage(proteinPercentage)}
-                              </Tooltip>
-                            )}
+ {/* Table - Desktop */}
+                <div className="hidden md:block">
+                  <Table
+                    aria-label="Plano alimentar diário"
+                    isStriped
+                    isHeaderSticky
+                    selectionMode="none"
+                    className="min-w-full"
+                    classNames={{
+                      base: "shadow-lg rounded-2xl border border-default-200",
+                      table: "min-w-full",
+                      thead: "[&>tr]:first:rounded-lg",
+                      th: "bg-default-100 text-default-700 font-bold text-sm py-4",
+                      td: "py-3 border-b border-default-100",
+                      tr: "hover:bg-default-50 transition-colors",
+                    }}
+                    topContent={
+                      <div className="flex justify-between items-center p-4">
+                        <h2 className="text-xl font-bold text-default-800">
+                          Plano Alimentar - {selectedPlan?.name || "Plano atual"}
+                        </h2>
+                        <Chip color="primary" variant="flat" size="sm">
+                          {new Date().toLocaleDateString("pt-BR")}
+                        </Chip>
+                      </div>
+                    }
+                    bottomContent={
+                      <div className="p-4 bg-default-50 border-t border-default-200">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-default-600">
+                            {sortedMeals.length} refeições programadas
+                          </span>
+                          <div className="flex gap-3">
+                            <Tooltip content={`Meta de proteína diária: ${proteinGoal}g`}>
+                              <Chip
+                                color="primary"
+                                variant="flat"
+                                startContent={
+                                  <span className="text-xs">🎯</span>
+                                }
+                              >
+                                Meta: {proteinGoal}g
+                              </Chip>
+                            </Tooltip>
+                            <Tooltip content={`Meta calórica diária: ${caloriesGoal} kcal`}>
+                              <Chip
+                                color="warning"
+                                variant="flat"
+                                startContent={
+                                  <span className="text-xs">🎯</span>
+                                }
+                              >
+                                Meta: {caloriesGoal} kcal
+                              </Chip>
+                            </Tooltip>
                           </div>
                         </div>
-                      }
-                      bottomContent={
-                        <div className="p-4 bg-default-50 border-t border-default-200">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-default-600">
-                              {sortedMeals.length} refeições programadas
-                            </span>
-                            <div className="flex gap-3">
-                              <Tooltip content={`Meta de proteína diária: ${proteinGoal}g`}>
-                                <Chip
-                                  color="primary"
-                                  variant="flat"
-                                  startContent={
-                                    <span className="text-xs">🎯</span>
-                                  }
-                                >
-                                  Meta: {proteinGoal}g
-                                </Chip>
-                              </Tooltip>
-                              <Tooltip content={`Meta calórica diária: ${caloriesGoal} kcal`}>
-                                <Chip
-                                  color="warning"
-                                  variant="flat"
-                                  startContent={
-                                    <span className="text-xs">🎯</span>
-                                  }
-                                >
-                                  Meta: {caloriesGoal} kcal
-                                </Chip>
-                              </Tooltip>
-                            </div>
-                          </div>
+                      </div>
+                    }
+                  >
+                    <TableHeader>
+                      <TableColumn className="w-24 text-center">
+                        HORÁRIO
+                      </TableColumn>
+                      <TableColumn className="min-w-32">REFEIÇÃO</TableColumn>
+                      <TableColumn className="min-w-48">ALIMENTOS</TableColumn>
+                      <TableColumn className="w-28 text-center">
+                        PROTEÍNA
+                      </TableColumn>
+                      <TableColumn className="w-28 text-center">
+                        CALORIAS
+                      </TableColumn>
+                    </TableHeader>
+                    <TableBody
+                      emptyContent={
+                        <div className="text-center py-8">
+                          <div className="text-4xl mb-2">🍽️</div>
+                          <p className="text-default-500">
+                            Nenhuma refeição cadastrada
+                          </p>
                         </div>
                       }
                     >
-                      <TableHeader>
-                        <TableColumn className="w-24 text-center">
-                          HORÁRIO
-                        </TableColumn>
-                        <TableColumn className="min-w-32">REFEIÇÃO</TableColumn>
-                        <TableColumn className="min-w-48">ALIMENTOS</TableColumn>
-                        <TableColumn className="w-28 text-center">
-                          PROTEÍNA
-                        </TableColumn>
-                        <TableColumn className="w-28 text-center">
-                          CALORIAS
-                        </TableColumn>
-                      </TableHeader>
-                      <TableBody
-                        emptyContent={
-                          <div className="text-center py-8">
-                            <div className="text-4xl mb-2">🍽️</div>
-                            <p className="text-default-500">
-                              Nenhuma refeição cadastrada
-                            </p>
-                          </div>
-                        }
-                      >
-                        {sortedMeals.map((meal) => (
-                          <TableRow
-                            key={meal.id}
-                            className="group hover:bg-default-50 transition-colors"
-                          >
-                            <TableCell>
-                              <div className="flex flex-col items-center">
-                                <Chip
-                                  size="sm"
-                                  variant="flat"
-                                  color="secondary"
-                                  className="font-mono text-xs"
-                                >
-                                  {meal.time}
-                                </Chip>
+                     {sortedMeals.map((meal, index) => (
+                        <React.Fragment key={meal.id}>
+                        <TableRow
+                          key={meal.id}
+                          className="group"
+                        >
+                          <TableCell>
+                            <div className="flex flex-col items-center">
+                              <Chip
+                                size="sm"
+                                variant="flat"
+                                color="secondary"
+                                className="font-mono text-xs"
+                              >
+                                {meal.time}
+                              </Chip>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="flex-shrink-0 w-8 h-8 bg-default-100 rounded-lg flex items-center justify-center">
+                                <span className="text-sm">{meal.emoji}</span>
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                <div className="flex-shrink-0 w-8 h-8 bg-default-100 rounded-lg flex items-center justify-center">
-                                  <span className="text-sm">{meal.emoji}</span>
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="font-medium text-default-800">
-                                    {meal.name}
+                              <div className="flex flex-col">
+                                <span className="font-medium text-default-800">
+                                  {meal.name}
+                                </span>
+                                {meal.description && (
+                                  <span className="text-xs text-default-500">
+                                    {meal.description}
                                   </span>
-                                  {meal.description && (
-                                    <span className="text-xs text-default-500">
-                                      {meal.description}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-wrap gap-2">
-                                {meal.foods.map(
-                                  (
-                                    food: { name: string; amount?: string },
-                                    index
-                                  ) => (
-                                    <Tooltip
-                                      key={index}
-                                      content={`${food.name}${
-                                        food.amount
-                                          ? ` - ${food.amount}`
-                                          : ""
-                                      }`}
-                                    >
-                                      <Chip
-                                        size="sm"
-                                        variant="flat"
-                                        color="default"
-                                        className="max-w-32 truncate transition-all hover:scale-105"
-                                      >
-                                        {food.amount
-                                          ? `${food.name} (${food.amount})`
-                                          : food.name}
-                                      </Chip>
-                                    </Tooltip>
-                                  )
                                 )}
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex justify-center">
-                                <Chip
-                                  color="primary"
-                                  variant="flat"
-                                  size="sm"
-                                  startContent={
-                                    <span className="text-xs">🥩</span>
-                                  }
-                                  className="font-semibold"
-                                >
-                                  {meal.protein}g
-                                </Chip>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex justify-center">
-                                <Chip
-                                  color="warning"
-                                  variant="flat"
-                                  size="sm"
-                                  startContent={
-                                    <span className="text-xs">🔥</span>
-                                  }
-                                  className="font-semibold"
-                                >
-                                  {meal.calories}
-                                </Chip>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-
-                        <TableRow className="bg-default-100 border-t-2 border-default-300">
-                          <TableCell
-                            colSpan={3}
-                            className="text-right font-bold py-4"
-                          >
-                            <div className="flex items-center justify-end gap-2">
-                              <span>Total do Dia</span>
-                              <Progress
-                                size="sm"
-                                value={proteinPercentage}
-                                className="max-w-24"
-                                color={getProgressColor(proteinPercentage)}
-                              />
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-2">
+                              {meal.foods.map(
+                                (
+                                  food: { name: string; amount?: string },
+                                  index
+                                ) => (
+                                  <Tooltip
+                                    key={index}
+                                    content={`${food.name}${
+                                      food.amount
+                                        ? ` - ${food.amount}`
+                                        : ""
+                                    }`}
+                                  >
+                                    <Chip
+                                      size="sm"
+                                      variant="flat"
+                                      color="default"
+                                      className="max-w-32 truncate transition-all hover:scale-105"
+                                    >
+                                      {food.amount
+                                        ? `${food.name} (${food.amount})`
+                                        : food.name}
+                                    </Chip>
+                                  </Tooltip>
+                                )
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex justify-center">
                               <Chip
                                 color="primary"
-                                variant="solid"
+                                variant="flat"
+                                size="sm"
                                 startContent={
-                                  <span className="text-xs">📊</span>
+                                  <span className="text-xs">🥩</span>
                                 }
-                                className="font-bold shadow-md"
+                                className="font-semibold"
                               >
-                                {currentProtein}g
+                                {meal.protein}g
                               </Chip>
                             </div>
                           </TableCell>
@@ -673,20 +768,71 @@ export const DashboardStatsPro = ({
                             <div className="flex justify-center">
                               <Chip
                                 color="warning"
-                                variant="solid"
+                                variant="flat"
+                                size="sm"
                                 startContent={
-                                  <span className="text-xs">📊</span>
+                                  <span className="text-xs">🔥</span>
                                 }
-                                className="font-bold shadow-md"
+                                className="font-semibold"
                               >
-                                {currentCalories}
+                                {meal.calories}
                               </Chip>
                             </div>
                           </TableCell>
                         </TableRow>
-                      </TableBody>
-                    </Table>
-                  </div>
+                      ))
+
+                      <TableRow className="bg-default-100 border-t-2 border-default-300">
+                        <TableCell
+                          colSpan={3}
+                          className="text-right font-bold py-4"
+                        >
+                          <div className="flex items-center justify-end gap-2">
+                            <span>Total do Dia</span>
+                            <Progress
+                              size="sm"
+                              value={proteinPercentage}
+                              className="max-w-24"
+                              color="primary"
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-center">
+                            <Chip
+                              color="primary"
+                              variant="solid"
+                              startContent={
+                                <span className="text-xs">📊</span>
+                              }
+                              className="font-bold shadow-md"
+                            >
+                              {currentProtein}g
+                            </Chip>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-center">
+                            <Chip
+                              color="warning"
+                              variant="solid"
+                              startContent={
+                                <span className="text-xs">📊</span>
+                              }
+                              className="font-bold shadow-md"
+                            >
+                              {currentCalories}
+                            </Chip>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                       </React.Fragment>
+                      ))}
+                    </TableBody>
+                   
+                  </Table>
+                </div>
+
 
                   {/* Mobile Cards */}
                   <div className="block md:hidden space-y-3 p-4 bg-white rounded-b-2xl shadow-lg border border-t-0 border-default-200">
@@ -863,6 +1009,7 @@ export const DashboardStatsPro = ({
       </div>
 
       <MedalModal />
+      <NotificationsModal />
     </>
   );
 };
