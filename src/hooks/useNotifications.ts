@@ -1,8 +1,7 @@
-// hooks/useWaterNotifications.ts
 import { useState, useEffect, useCallback } from 'react';
-import { notificationService, WaterAlarm } from '@/lib/notificationService';
+import { notificationService } from '@/lib/notificationService';
 
-export const useWaterNotifications = (alarms: WaterAlarm[]) => {
+export const useNotifications = () => {
   const [isSupported, setIsSupported] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [isEnabled, setIsEnabled] = useState(false);
@@ -18,7 +17,7 @@ export const useWaterNotifications = (alarms: WaterAlarm[]) => {
         setPermission(notificationService.getPermissionStatus());
         setIsInitialized(true);
 
-        const enabled = localStorage.getItem('water_notifications_enabled') === 'true';
+        const enabled = localStorage.getItem('notifications_enabled') === 'true';
         setIsEnabled(enabled);
       }
     };
@@ -37,23 +36,23 @@ export const useWaterNotifications = (alarms: WaterAlarm[]) => {
     }
   }, []);
 
-  const scheduleAlarms = useCallback(async (alarmsToSchedule: WaterAlarm[]) => {
+  const scheduleNotifications = useCallback(async (meals: any[], planName: string) => {
     if (!isEnabled || permission !== 'granted') {
       return false;
     }
 
     try {
-      await notificationService.scheduleWaterAlarms(alarmsToSchedule);
+      await notificationService.scheduleNotifications(meals, planName);
       return true;
     } catch (error) {
-      console.error('Erro ao agendar alarmes de água:', error);
+      console.error('Erro ao agendar notificações:', error);
       return false;
     }
   }, [isEnabled, permission]);
 
-  const sendTestNotification = useCallback(async () => {
+  const sendTestNotification = useCallback(async (meal: any) => {
     try {
-      await notificationService.sendWaterTestNotification();
+      await notificationService.sendTestNotification(meal);
       return true;
     } catch (error) {
       console.error('Erro ao enviar notificação de teste:', error);
@@ -70,25 +69,18 @@ export const useWaterNotifications = (alarms: WaterAlarm[]) => {
     }
 
     setIsEnabled(enabled);
-    localStorage.setItem('water_notifications_enabled', enabled.toString());
+    localStorage.setItem('notifications_enabled', enabled.toString());
 
     if (!enabled) {
-      await notificationService.clearAllWaterAlarms();
+      await notificationService.clearAllNotifications();
     }
 
     return true;
   }, [permission, requestPermission]);
 
-  const clearAllAlarms = useCallback(async () => {
-    await notificationService.clearAllWaterAlarms();
+  const clearAllNotifications = useCallback(async () => {
+    await notificationService.clearAllNotifications();
   }, []);
-
-  // Efeito para agendar alarmes quando eles mudam
-  useEffect(() => {
-    if (isInitialized && isEnabled && permission === 'granted') {
-      scheduleAlarms(alarms);
-    }
-  }, [alarms, isInitialized, isEnabled, permission, scheduleAlarms]);
 
   return {
     isSupported,
@@ -96,9 +88,9 @@ export const useWaterNotifications = (alarms: WaterAlarm[]) => {
     isEnabled,
     isInitialized,
     requestPermission,
-    scheduleAlarms,
+    scheduleNotifications,
     sendTestNotification,
     toggleNotifications,
-    clearAllAlarms
+    clearAllNotifications
   };
 };
