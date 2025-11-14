@@ -1,5 +1,5 @@
 // components/PWAInstallBanner.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, Button, Chip, Image } from "@heroui/react";
 import { Download, X, Smartphone, Rocket, Star } from "lucide-react";
 import { usePWAInstall } from '@/hooks/usePWAInstall';
@@ -7,81 +7,104 @@ import { usePWAInstall } from '@/hooks/usePWAInstall';
 export const PWAInstallBanner = () => {
   const { canInstall, isInstalled, installPWA, getInstallInstructions, isIOS } = usePWAInstall();
   const [showBanner, setShowBanner] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const hasShownRef = useRef(false);
+  const timeoutRef = useRef<NodeJS.Timeout>();
+
+  console.log('🎪 PWAInstallBanner: Renderizando', { canInstall, isInstalled, showBanner });
 
   useEffect(() => {
-    console.log('🎪 Verificando se deve mostrar banner PWA:', {
+    // Cleanup function para evitar memory leaks
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    console.log('🎪 PWAInstallBanner: useEffect triggered', {
       canInstall,
       isInstalled,
-      isIOS,
-      bannerDismissed
+      hasShown: hasShownRef.current
     });
 
     // Não mostrar se já estiver instalado
     if (isInstalled) {
-      console.log('✅ App já instalado - ocultando banner');
+      console.log('✅ PWAInstallBanner: Já instalado - escondendo banner');
       setShowBanner(false);
       return;
     }
 
-    // Verificar se o usuário já descartou o banner
+    // Não mostrar se já mostramos uma vez
+    if (hasShownRef.current) {
+      console.log('⏰ PWAInstallBanner: Já foi mostrado antes');
+      return;
+    }
+
+    // Verificar se o usuário descartou recentemente
     const dismissed = localStorage.getItem('pwa-banner-dismissed');
     if (dismissed) {
       const dismissedTime = parseInt(dismissed);
       const now = Date.now();
-      const oneDay = 24 * 60 * 60 * 1000; // 1 dia em milliseconds
+      const oneDay = 24 * 60 * 60 * 1000;
 
-      // Se foi descartado há menos de 1 dia, não mostrar
       if (now - dismissedTime < oneDay) {
-        console.log('⏰ Banner descartado recentemente - não mostrar');
-        setBannerDismissed(true);
+        console.log('🚫 PWAInstallBanner: Usuário descartou recentemente');
+        hasShownRef.current = true;
         return;
       }
     }
 
-    // Mostrar banner se pode instalar (tem deferredPrompt) ou é iOS
-    if (canInstall && !bannerDismissed) {
-      console.log('🚀 Condições atendidas - mostrando banner em 2 segundos');
-      const timer = setTimeout(() => {
-        console.log('🎪 Exibindo banner PWA');
-        setShowBanner(true);
-      }, 2000);
+    // Mostrar banner apenas se pode instalar E não está instalado
+    if (canInstall && !isInstalled) {
+      console.log('🚀 PWAInstallBanner: Condições atendidas - agendando banner');
+      
+      // Limpar timeout anterior se existir
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
 
-      return () => clearTimeout(timer);
+      timeoutRef.current = setTimeout(() => {
+        console.log('🎪 PWAInstallBanner: Mostrando banner');
+        setShowBanner(true);
+        hasShownRef.current = true;
+      }, 3000); // 3 segundos
+
+      return () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+      };
     }
-  }, [canInstall, isInstalled, isIOS, bannerDismissed]);
+  }, [canInstall, isInstalled]); // Apenas estas dependências
 
   const handleInstallClick = async () => {
-    console.log('🖱️ Banner - Botão de instalação clicado');
+    console.log('🖱️ PWAInstallBanner: Botão de instalação clicado');
     
     if (isIOS) {
-      // iOS: mostrar instruções
       handleManualInstallInfo();
     } else {
-      // Chrome/Android: tentar instalação nativa
       const success = await installPWA();
       if (success) {
         setShowBanner(false);
         localStorage.removeItem('pwa-banner-dismissed');
       } else {
-        // Se a instalação nativa falhar, mostrar instruções
         handleManualInstallInfo();
       }
     }
   };
 
   const handleDismiss = () => {
-    console.log('❌ Banner descartado pelo usuário');
+    console.log('❌ PWAInstallBanner: Usuário descartou banner');
     setShowBanner(false);
-    setBannerDismissed(true);
-    // Salvar no localStorage que o usuário descartou
+    hasShownRef.current = true;
     localStorage.setItem('pwa-banner-dismissed', Date.now().toString());
   };
 
   const handleManualInstallInfo = () => {
     const instructions = getInstallInstructions();
     
-    // Criar um modal mais bonito em vez de alert
+    // Usar modal nativo em vez de alert
     const modal = document.createElement('div');
     modal.style.cssText = `
       position: fixed;
@@ -132,12 +155,12 @@ export const PWAInstallBanner = () => {
     document.body.appendChild(modal);
   };
 
-  // Não mostrar se já estiver instalado ou se não deve mostrar o banner
-  if (isInstalled || !showBanner) {
+  // Não renderizar nada se não deve mostrar
+  if (!showBanner) {
     return null;
   }
 
-  console.log('🎪 Renderizando banner PWA');
+  console.log('🎪 PWAInstallBanner: Renderizando componente');
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50 animate-fade-in-up">
@@ -145,8 +168,7 @@ export const PWAInstallBanner = () => {
         <div className="p-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3 flex-1">
-              {/* Ícone do app com animação */}
-              <div className="p-2 bg-white/20 rounded-xl mt-1 animate-pulse">
+              <div className="p-2 bg-white/20 rounded-xl mt-1">
                 <Image
                   src="/Essentia.png"
                   alt="Essentia"
@@ -172,8 +194,8 @@ export const PWAInstallBanner = () => {
                 
                 <p className="text-white/95 text-sm mb-4 leading-relaxed">
                   {isIOS 
-                    ? "📲 Tenha o Essentia na sua tela inicial! Acesso instantâneo, experiência nativa e notificações personalizadas. É grátis! 🚀"
-                    : "⚡ Instale o Essentia como app nativo! Funciona offline, notificações inteligentes e performance máxima. Totalmente gratuito! 🎯"
+                    ? "📲 Tenha o Essentia na sua tela inicial! Acesso instantâneo como um app nativo. 🚀"
+                    : "⚡ Instale o Essentia como app! Funciona offline e tem notificações inteligentes. 🎯"
                   }
                 </p>
 
@@ -182,7 +204,7 @@ export const PWAInstallBanner = () => {
                     color="primary"
                     variant="solid"
                     onPress={handleInstallClick}
-                    className="bg-white text-blue-600 font-bold shadow-lg hover:scale-105 transition-all duration-200 hover:shadow-xl"
+                    className="bg-white text-blue-600 font-bold shadow-lg hover:scale-105 transition-all duration-200"
                     startContent={<Download className="h-4 w-4" />}
                     size="md"
                   >
@@ -193,11 +215,11 @@ export const PWAInstallBanner = () => {
                     color="default"
                     variant="flat"
                     onPress={handleManualInstallInfo}
-                    className="text-white border-white/30 bg-white/10 hover:bg-white/20 transition-all"
+                    className="text-white border-white/30 bg-white/10 hover:bg-white/20"
                     startContent={<Smartphone className="h-4 w-4" />}
                     size="md"
                   >
-                    Ver Instruções
+                    Instruções
                   </Button>
                 </div>
               </div>
@@ -208,7 +230,7 @@ export const PWAInstallBanner = () => {
               variant="light"
               size="sm"
               onPress={handleDismiss}
-              className="text-white hover:bg-white/20 min-w-8 h-8 transition-colors"
+              className="text-white hover:bg-white/20 min-w-8 h-8"
             >
               <X className="h-4 w-4" />
             </Button>
