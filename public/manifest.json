@@ -4,39 +4,69 @@
   "description": "Controle suas refeições, hidratação e conquiste medalhas!",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
-  "orientation": "portrait-primary",
+  "background_color": "#FFFFFF",
+  "theme_color": "#3B82F6",
+  "orientation": "portrait",
   "scope": "/",
   "lang": "pt-BR",
   "categories": ["health", "fitness", "food"],
   "icons": [
     {
-      "src": "/icons/favicon-16x16.png",
-      "sizes": "16x16",
-      "type": "image/png"
+      "src": "/Essentia.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "/icons/favicon-32x32.png",
-      "sizes": "32x32",
-      "type": "image/png"
+      "src": "/Essentia.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "/public/Essentia.png",
+      "src": "/Essentia.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/Essentia.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/Essentia.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/Essentia.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/public/Essentia.png",
-      "sizes": "512x512",
+      "src": "/Essentia.png",
+      "sizes": "384x384",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/public/Essentia.png",
-      "sizes": "180x180",
-      "type": "image/png"
+      "src": "/Essentia.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/mobile-1.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Dashboard principal do Essentia"
     }
   ]
 }

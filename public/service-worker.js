@@ -1,5 +1,5 @@
 // public/service-worker.js
-const CACHE_NAME = 'essentia-nutrition-v1.0.0';
+const CACHE_NAME = 'essentia-nutrition-v2.0.0';
 
 // Instalação do Service Worker
 self.addEventListener('install', (event) => {
@@ -34,7 +34,51 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// Agendar notificações de refeições (Cross-browser)
+// Sons de notificação (usando Web Audio API)
+function playNotificationSound(type = 'meal') {
+  try {
+    const audioContext = new (self.AudioContext || self.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    // Sons diferentes para tipos diferentes de notificação
+    if (type === 'meal') {
+      // Som suave para refeições - tom ascendente
+      oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(800, audioContext.currentTime + 0.3);
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      oscillator.type = 'sine';
+    } else if (type === 'water') {
+      // Som refrescante para água - como gotas
+      oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+      oscillator.frequency.setValueAtTime(300, audioContext.currentTime + 0.1);
+      oscillator.frequency.setValueAtTime(500, audioContext.currentTime + 0.2);
+      gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      oscillator.type = 'sine';
+    } else if (type === 'test') {
+      // Som divertido para teste - mais animado
+      oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+      oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
+      oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2); // G5
+      gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+      oscillator.type = 'triangle';
+    }
+
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.5);
+
+  } catch (error) {
+    console.log('🔇 Não foi possível reproduzir som:', error);
+  }
+}
+
+// Agendar notificações de refeições
 async function scheduleMealNotifications(notifications) {
   console.log('🍽️ Agendando notificações de refeições:', notifications);
   
@@ -61,16 +105,17 @@ async function scheduleMealNotifications(notifications) {
         try {
           console.log('🔔 Disparando notificação:', title);
           
-          // Configuração cross-browser para notificações
+          // Tocar som da notificação
+          playNotificationSound('meal');
+          
           const notificationOptions = {
             body,
-            icon: '/Essentia.png', // Ícone do app - Essentia.png
-            badge: '/Essentia.png', // Badge para mobile - Essentia.png
+            icon: '/Essentia.png',
+            badge: '/Essentia.png',
             tag,
             data,
             requireInteraction: true,
-            // Vibrate só funciona em alguns browsers
-            ...(navigator.vibrate && { vibrate: [200, 100, 200] }),
+            vibrate: [200, 100, 200],
             actions: [
               {
                 action: 'open',
@@ -129,14 +174,17 @@ async function scheduleWaterAlarms(alarms) {
         try {
           console.log('🔔 Disparando alarme de água:', title);
           
+          // Tocar som da notificação de água
+          playNotificationSound('water');
+          
           const notificationOptions = {
             body,
-            icon: '/Essentia.png', // Ícone do app - Essentia.png
-            badge: '/Essentia.png', // Badge para mobile - Essentia.png
+            icon: '/Essentia.png',
+            badge: '/Essentia.png',
             tag,
             data,
             requireInteraction: true,
-            ...(navigator.vibrate && { vibrate: [200, 100, 200] }),
+            vibrate: [100, 50, 100],
             actions: [
               {
                 action: 'open',
@@ -176,13 +224,16 @@ async function sendTestMealNotification(notificationData) {
     const title = notificationData.title || '🍽️ Teste de Notificação';
     const body = notificationData.body || 'Esta é uma notificação de teste!';
     
+    // Tocar som de teste
+    playNotificationSound('test');
+    
     const notificationOptions = {
       body: body,
-      icon: '/Essentia.png', // Ícone do app - Essentia.png
-      badge: '/Essentia.png', // Badge para mobile - Essentia.png
+      icon: '/Essentia.png',
+      badge: '/Essentia.png',
       tag: 'test-notification',
       requireInteraction: true,
-      ...(navigator.vibrate && { vibrate: [200, 100, 200] }),
+      vibrate: [300, 200, 300],
       actions: [
         {
           action: 'open',
@@ -213,12 +264,15 @@ async function sendTestMealNotification(notificationData) {
 async function sendTestWaterNotification() {
   console.log('🧪 Enviando notificação de teste de água');
   
+  // Tocar som de água
+  playNotificationSound('water');
+  
   const notificationOptions = {
     body: 'Esta é uma notificação de teste do Essentia! Se você está vendo isso, as notificações estão funcionando! 🎉',
-    icon: '/Essentia.png', // Ícone do app - Essentia.png
-    badge: '/Essentia.png', // Badge para mobile - Essentia.png
+    icon: '/Essentia.png',
+    badge: '/Essentia.png',
     requireInteraction: true,
-    ...(navigator.vibrate && { vibrate: [200, 100, 200] })
+    vibrate: [100, 50, 100]
   };
 
   if (isSafari()) {
@@ -263,28 +317,14 @@ self.addEventListener('notificationclick', (event) => {
   
   event.waitUntil(
     self.clients.matchAll({ type: 'window' }).then((clientList) => {
-      // Focar em uma janela existente se possível
       for (const client of clientList) {
         if (client.url.includes('/') && 'focus' in client) {
           return client.focus();
         }
       }
-      // Abrir nova janela se não houver uma aberta
       if (self.clients.openWindow) {
         return self.clients.openWindow('/');
       }
     })
   );
-});
-
-// Cache para funcionamento offline
-self.addEventListener('fetch', (event) => {
-  if (event.request.url.startsWith('http') && 
-      (event.request.url.includes('/Essentia.png') || 
-       event.request.url.includes('/manifest.json'))) {
-    event.respondWith(
-      caches.match(event.request)
-        .then(response => response || fetch(event.request))
-    );
-  }
 });

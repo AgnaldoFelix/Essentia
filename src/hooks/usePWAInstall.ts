@@ -14,36 +14,42 @@ export const usePWAInstall = () => {
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
+    console.log('🔧 Inicializando hook usePWAInstall...');
+
     // Detectar iOS
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     setIsIOS(iOS);
+    console.log('📱 iOS detectado:', iOS);
 
     // Verificar se já está instalado como PWA
     const checkIfInstalled = () => {
-      // Método 1: display-mode standalone
+      // Múltiplas formas de detectar PWA
       const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches;
-      // Método 2: navigator.standalone (iOS)
+      const isFullscreen = window.matchMedia('(display-mode: fullscreen)').matches;
+      const isMinimalUI = window.matchMedia('(display-mode: minimal-ui)').matches;
       const isIOSStandalone = (window.navigator as any).standalone;
-      // Método 3: Verificar se está rodando em contexto de PWA
-      const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || 
-                                (window.navigator as any).standalone ||
-                                window.location.search.includes('source=pwa');
       
-      console.log('📱 Verificando instalação PWA:');
-      console.log('- display-mode standalone:', isStandaloneMode);
-      console.log('- navigator.standalone:', isIOSStandalone);
-      console.log('- Modo standalone detectado:', isInStandaloneMode);
+      const installed = isStandaloneMode || isFullscreen || isMinimalUI || isIOSStandalone;
       
-      setIsStandalone(isInStandaloneMode);
-      return isInStandaloneMode;
+      console.log('🏠 Verificando instalação PWA:', {
+        isStandaloneMode,
+        isFullscreen,
+        isMinimalUI,
+        isIOSStandalone,
+        installed
+      });
+      
+      setIsStandalone(installed);
+      setIsInstalled(installed);
+      return installed;
     };
 
     const installed = checkIfInstalled();
-    setIsInstalled(installed);
+    console.log('✅ App instalado:', installed);
 
     // Handler para o evento beforeinstallprompt (Chrome/Android)
     const handleBeforeInstallPrompt = (e: BeforeInstallPromptEvent) => {
-      console.log('🎯 Evento beforeinstallprompt disparado');
+      console.log('🎯 Evento beforeinstallprompt disparado! PWA pode ser instalado.');
       e.preventDefault();
       setDeferredPrompt(e);
       setCanInstall(true);
@@ -51,9 +57,10 @@ export const usePWAInstall = () => {
 
     // Handler para quando o app é instalado
     const handleAppInstalled = () => {
-      console.log('✅ App instalado via PWA');
+      console.log('🎉 App instalado via PWA!');
       setIsInstalled(true);
       setCanInstall(false);
+      setIsStandalone(true);
     };
 
     // Monitorar mudanças no display mode
@@ -64,35 +71,34 @@ export const usePWAInstall = () => {
     };
 
     // Adicionar event listeners
-    if (!isIOS) {
-      // Chrome/Android: evento beforeinstallprompt
-      window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
-      console.log('📱 Registrado evento beforeinstallprompt para Chrome/Android');
-    }
-
+    console.log('📡 Registrando event listeners para PWA...');
+    
+    // Chrome/Android: evento beforeinstallprompt
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
+    
     // Eventos universais
     window.addEventListener('appinstalled', handleAppInstalled);
     
     const standaloneMediaQuery = window.matchMedia('(display-mode: standalone)');
     standaloneMediaQuery.addEventListener('change', handleDisplayModeChange);
 
-    // Para iOS, podemos instalar via "Adicionar à Tela Inicial"
-    if (isIOS && !installed) {
-      console.log('📱 iOS detectado - habilitando instalação via banner');
+    // Para iOS, sempre podemos "instalar" via "Adicionar à Tela Inicial"
+    if (iOS && !installed) {
+      console.log('📱 iOS detectado e não instalado - habilitando instalação');
       setCanInstall(true);
     }
 
-    // Debug: log do estado inicial
-    console.log('🔧 Estado inicial do PWA:');
-    console.log('- iOS:', isIOS);
-    console.log('- Pode instalar:', canInstall);
-    console.log('- Já instalado:', installed);
-    console.log('- DeferredPrompt:', !!deferredPrompt);
+    // Debug do estado inicial
+    console.log('📊 Estado inicial do PWA:', {
+      isIOS,
+      canInstall,
+      isInstalled: installed,
+      hasDeferredPrompt: !!deferredPrompt
+    });
 
     return () => {
-      if (!isIOS) {
-        window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
-      }
+      console.log('🧹 Limpando event listeners do PWA');
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
       window.removeEventListener('appinstalled', handleAppInstalled);
       standaloneMediaQuery.removeEventListener('change', handleDisplayModeChange);
     };
@@ -103,7 +109,7 @@ export const usePWAInstall = () => {
     
     if (deferredPrompt) {
       try {
-        console.log('📱 Chrome/Android: mostrando prompt de instalação');
+        console.log('📱 Chrome/Android: mostrando prompt de instalação nativo');
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
         
@@ -122,15 +128,14 @@ export const usePWAInstall = () => {
         return false;
       }
     } else {
-      console.log('📱 iOS ou navegador sem suporte nativo');
-      // Para iOS, retornamos false para mostrar instruções manuais
+      console.log('📱 iOS ou navegador sem suporte nativo - mostrando instruções');
       return false;
     }
   };
 
   const getInstallInstructions = (): string => {
     if (isIOS) {
-      return `📱 Para instalar no iPhone/iPad:
+      return `📱 PARA INSTALAR NO iPHONE/iPAD:
 
 1. Toque no botão "Compartilhar" 📤 
    (ícone de caixa com flecha na parte inferior)
@@ -140,17 +145,17 @@ export const usePWAInstall = () => {
 
 3. Toque em "Adicionar" no canto superior direito
 
-✨ Dica: Use o Safari para esta funcionalidade!
+💡 DICA: Use o Safari para esta funcionalidade!
 
-Após instalar, o Essentia aparecerá como um app nativo na sua tela inicial! 🎉`;
+✨ Após instalar, o Essentia aparecerá como um app nativo na sua tela inicial! 🎉`;
     } else {
-      return `📱 Para instalar no Android/Chrome:
+      return `📱 PARA INSTALAR NO ANDROID/CHROME:
 
 1. Toque no menu (⋯) no canto superior direito
 2. Selecione "Adicionar à tela inicial" 
 3. Toque em "Adicionar" para instalar
 
-💻 No computador:
+💻 NO COMPUTADOR:
 Procure o ícone de instalação (📥) na barra de endereço do Chrome
 
 ✨ Após instalar, o Essentia funcionará como um app nativo!`;
