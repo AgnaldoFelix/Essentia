@@ -2,126 +2,80 @@
 import { useState, useEffect } from 'react';
 import { Card, Button, Chip, Image } from "@heroui/react";
 import { Download, X, Smartphone, Rocket } from "lucide-react";
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
+import { usePWAInstall } from '@/hooks/usePWAInstall';
 
 export const PWAInstallBanner = () => {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const { canInstall, isInstalled, installPWA, getInstallInstructions, isIOS } = usePWAInstall();
   const [showBanner, setShowBanner] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
-    // Detectar iOS
-    setIsIOS(/iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream);
+    console.log('🎪 Estado do Banner PWA:', { canInstall, isInstalled, isIOS });
 
-    const checkIfInstalled = () => {
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-      const isIOSStandalone = (window.navigator as any).standalone;
-      return isStandalone || isIOSStandalone;
-    };
-
-    setIsInstalled(checkIfInstalled());
-
-    const handleBeforeInstallPrompt = (e: BeforeInstallPromptEvent) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      
-      const dismissed = localStorage.getItem('pwa-banner-dismissed');
-      if (!dismissed && !checkIfInstalled()) {
-        setTimeout(() => setShowBanner(true), 5000);
-      }
-    };
-
-    const handleDisplayModeChange = () => {
-      const installed = checkIfInstalled();
-      setIsInstalled(installed);
-      if (installed) {
-        setShowBanner(false);
-      }
-    };
-
-    // Eventos apenas para Chrome/Android
-    if (!isIOS) {
-      window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
-    }
-    
-    window.addEventListener('appinstalled', handleDisplayModeChange);
-    window.matchMedia('(display-mode: standalone)').addEventListener('change', handleDisplayModeChange);
-
-    // Para iOS, mostrar banner após um tempo se não estiver instalado
-    if (isIOS && !checkIfInstalled()) {
-      const dismissed = localStorage.getItem('pwa-banner-dismissed');
-      if (!dismissed) {
-        setTimeout(() => setShowBanner(true), 5000);
-      }
+    // Não mostrar se já estiver instalado
+    if (isInstalled) {
+      console.log('✅ App já instalado - ocultando banner');
+      setShowBanner(false);
+      return;
     }
 
-    return () => {
-      if (!isIOS) {
-        window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
-      }
-      window.removeEventListener('appinstalled', handleDisplayModeChange);
-      window.matchMedia('(display-mode: standalone)').removeEventListener('change', handleDisplayModeChange);
-    };
-  }, []);
+    // Verificar se o usuário já descartou o banner recentemente
+    const dismissed = localStorage.getItem('pwa-banner-dismissed');
+    const dismissedTime = dismissed ? parseInt(dismissed) : 0;
+    const now = Date.now();
+    const oneWeek = 7 * 24 * 60 * 60 * 1000; // 1 semana em milliseconds
+
+    // Se foi descartado há menos de 1 semana, não mostrar
+    if (dismissedTime && (now - dismissedTime) < oneWeek) {
+      console.log('⏰ Banner descartado recentemente - não mostrar');
+      return;
+    }
+
+    // Mostrar banner se pode instalar (tem deferredPrompt) ou é iOS
+    if (canInstall) {
+      console.log('🚀 Mostrando banner em 3 segundos...');
+      const timer = setTimeout(() => {
+        console.log('🎪 Banner PWA sendo exibido');
+        setShowBanner(true);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [canInstall, isInstalled, isIOS]);
 
   const handleInstallClick = async () => {
-    if (deferredPrompt) {
-      // Chrome/Android
-      try {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        
-        if (outcome === 'accepted') {
-          console.log('Usuário aceitou a instalação do PWA');
-          setShowBanner(false);
-          localStorage.removeItem('pwa-banner-dismissed');
-        }
-        
-        setDeferredPrompt(null);
-      } catch (error) {
-        console.error('Erro ao instalar PWA:', error);
-      }
-    } else {
-      // iOS - Mostrar instruções
+    console.log('🖱️ Banner - Botão de instalação clicado');
+    
+    if (isIOS) {
+      // iOS: mostrar instruções
       handleManualInstallInfo();
+    } else {
+      // Chrome/Android: tentar instalação nativa
+      const success = await installPWA();
+      if (success) {
+        setShowBanner(false);
+        localStorage.removeItem('pwa-banner-dismissed');
+      }
     }
   };
 
   const handleDismiss = () => {
+    console.log('❌ Banner descartado pelo usuário');
     setShowBanner(false);
+    // Salvar no localStorage que o usuário descartou
     localStorage.setItem('pwa-banner-dismissed', Date.now().toString());
   };
 
   const handleManualInstallInfo = () => {
-    if (isIOS) {
-      alert(`📱 Para instalar no iPhone/iPad:
-1. Toque no botão "Compartilhar" 📤 (ícone de caixa com flecha)
-2. Role para baixo e toque em "Adicionar à Tela de Início" 
-3. Toque em "Adicionar" no canto superior direito
-
-💡 Dica: Use o Safari para esta funcionalidade!
-
-✨ Após instalar, o app aparecerá com o ícone do Essentia na sua tela inicial!`);
-    } else {
-      alert(`📱 Para instalar no Android/Chrome:
-1. Toque no menu (⋯) no canto superior direito
-2. Selecione "Adicionar à tela inicial" 
-3. Toque em "Adicionar" para instalar
-
-💻 No computador:
-Procure o ícone de instalação (📥) na barra de endereço do Chrome
-
-✨ Após instalar, o app aparecerá com o ícone do Essentia!`);
-    }
+    const instructions = getInstallInstructions();
+    alert(instructions);
   };
 
-  // Não mostrar se já estiver instalado
-  if (isInstalled || !showBanner) return null;
+  // Não mostrar se já estiver instalado ou se não deve mostrar o banner
+  if (isInstalled || !showBanner) {
+    return null;
+  }
+
+  console.log('🎪 Renderizando banner PWA');
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50 animate-fade-in">
@@ -155,8 +109,8 @@ Procure o ícone de instalação (📥) na barra de endereço do Chrome
                 
                 <p className="text-white/90 text-sm mb-3">
                   {isIOS 
-                    ? "Instale nosso app para acesso rápido pela tela inicial! Experiência nativa e notificações. 🚀"
-                    : "Instale nosso app para uma experiência completa! Acesso offline, notificações e performance máxima. 🚀"
+                    ? "Instale nosso app para acesso rápido pela tela inicial! Experiência nativa como um app verdadeiro. 🚀"
+                    : "Instale nosso app para uma experiência completa! Acesso rápido, notificações e performance máxima. 🚀"
                   }
                 </p>
 

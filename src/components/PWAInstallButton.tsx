@@ -4,7 +4,9 @@ import { Download, Smartphone, Check } from "lucide-react";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
 
 export const PWAInstallButton = () => {
-  const { canInstall, isInstalled, installPWA, getInstallInstructions } = usePWAInstall();
+  const { canInstall, isInstalled, installPWA, getInstallInstructions, isIOS } = usePWAInstall();
+
+  console.log('🔘 Estado do botão PWA:', { canInstall, isInstalled, isIOS });
 
   if (isInstalled) {
     return (
@@ -21,15 +23,29 @@ export const PWAInstallButton = () => {
     );
   }
 
-  if (!canInstall) return null;
+  // Mostrar botão se pode instalar (tem deferredPrompt) ou é iOS
+  if (!canInstall) {
+    console.log('❌ Botão não mostrado: canInstall é false');
+    return null;
+  }
+
+  const handleInstallClick = async () => {
+    console.log('🖱️ Botão de instalação clicado');
+    const success = await installPWA();
+    
+    if (!success && isIOS) {
+      // Para iOS, mostrar instruções já que não há instalação automática
+      alert(getInstallInstructions());
+    }
+  };
 
   return (
     <div className="flex gap-2">
-      <Tooltip content="Instalar App (PWA)">
+      <Tooltip content={isIOS ? "Como instalar no iPhone/iPad" : "Instalar App (PWA)"}>
         <Button
           color="primary"
           variant="flat"
-          onPress={installPWA}
+          onPress={handleInstallClick}
           isIconOnly
           className="text-primary-600 animate-pulse"
         >
