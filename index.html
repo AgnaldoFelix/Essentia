@@ -12,44 +12,68 @@
     <!-- Meta tags para PWA -->
     <meta name="theme-color" content="#3b82f6" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Essentia" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="msapplication-TileColor" content="#3b82f6" />
-    <meta name="msapplication-tap-highlight" content="no" />
+    <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
 
-    <!-- Open Graph / Facebook -->
+    <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://essentia.app/" />
     <meta property="og:title" content="Essentia - Seu Controle Nutricional" />
     <meta property="og:description" content="Controle suas refeições, hidratação e conquiste medalhas por seus objetivos!" />
-    <meta property="og:image" content="/icon-512x512.png" />
+    <meta property="og:image" content="/icons/icon-512x512.png" />
 
     <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://essentia.app/" />
-    <meta property="twitter:title" content="Essentia - Seu Controle Nutricional" />
-    <meta property="twitter:description" content="Controle suas refeições, hidratação e conquiste medalhas por seus objetivos!" />
-    <meta property="twitter:image" content="/icon-512x512.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Essentia - Seu Controle Nutricional" />
+    <meta name="twitter:description" content="Controle suas refeições, hidratação e conquiste medalhas por seus objetivos!" />
+    <meta name="twitter:image" content="/icons/icon-512x512.png" />
 
-    <!-- Favicon -->
+    <!-- Favicon para diferentes dispositivos -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png" />
+    
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/apple-touch-icon-152x152.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/icons/apple-touch-icon-167x167.png" />
+    
+    <!-- Android -->
+    <link rel="icon" sizes="192x192" href="/icons/android-chrome-192x192.png" />
+    <link rel="icon" sizes="512x512" href="/icons/android-chrome-512x512.png" />
 
     <!-- Manifest -->
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="manifest" href="/manifest.json" crossorigin="use-credentials" />
 
-    <!-- Splash Screen para iOS -->
-    <link rel="apple-touch-startup-image" href="/splash-640x1136.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
-    <link rel="apple-touch-startup-image" href="/splash-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" />
-    <link rel="apple-touch-startup-image" href="/splash-1242x2208.png" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
-    <link rel="apple-touch-startup-image" href="/splash-1125x2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" />
+    <!-- Preload para melhor performance -->
+    <link rel="preload" href="/icons/icon-512x512.png" as="image" />
   </head>
 
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Script para debug de PWA -->
+    <script>
+      // Debug do service worker
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(registration => {
+          console.log('✅ Service Worker registrado:', registration);
+        }).catch(error => {
+          console.error('❌ Erro no Service Worker:', error);
+        });
+      }
+
+      // Debug das notificações
+      console.log('🔔 Status da permissão:', Notification.permission);
+      
+      // Detectar se está em modo PWA
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        console.log('📱 Executando como PWA');
+      }
+    </script>
   </body>
 </html>

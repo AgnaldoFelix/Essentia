@@ -187,25 +187,53 @@ export class NotificationService {
   }
 
   async sendMealTestNotification(meal: any): Promise<void> {
-    if (!this.registration) {
-      await this.init();
-    }
+  console.log('🧪 [NotificationService] Iniciando teste de notificação de refeição...');
+  
+  // Verifica permissão primeiro
+  const currentPermission = this.getPermissionStatus();
+  console.log('🎯 [NotificationService] Permissão atual:', currentPermission);
+  
+  if (currentPermission !== 'granted') {
+    console.log('❌ [NotificationService] Permissão não concedida');
+    throw new Error('Permissão de notificação não concedida');
+  }
 
-    const hasPermission = await this.requestPermission();
-    if (!hasPermission) {
-      throw new Error('Permissão de notificação negada');
-    }
-
-    if (this.registration?.active) {
-      this.registration.active.postMessage({
-        type: 'TEST_MEAL_NOTIFICATION',
-        notification: {
-          title: `🍽️ ${meal.emoji} Teste de Refeição!`,
-          body: `Teste: ${meal.name} - ${meal.time}\n${meal.description || ''}`
-        }
-      });
+  // Verifica se o service worker está registrado
+  if (!this.registration) {
+    console.log('🔄 [NotificationService] Service Worker não registrado, inicializando...');
+    const initialized = await this.init();
+    if (!initialized) {
+      throw new Error('Falha ao inicializar Service Worker');
     }
   }
+
+  // Verifica se o service worker está ativo
+  if (!this.registration?.active) {
+    console.log('❌ [NotificationService] Service Worker não está ativo');
+    throw new Error('Service Worker não está ativo');
+  }
+
+  console.log('✅ [NotificationService] Tudo ok, enviando mensagem...');
+  
+  const notificationData = {
+    title: `🍽️ ${meal.emoji} Teste de Notificação!`,
+    body: `Teste: ${meal.name} - ${meal.time}\n${meal.description || ''}`,
+    mealId: meal.id,
+    mealName: meal.name,
+    mealTime: meal.time
+  };
+
+  try {
+    this.registration.active.postMessage({
+      type: 'TEST_MEAL_NOTIFICATION',
+      notification: notificationData
+    });
+    console.log('✅ [NotificationService] Mensagem enviada para Service Worker');
+  } catch (error) {
+    console.error('❌ [NotificationService] Erro ao enviar mensagem:', error);
+    throw new Error('Falha ao comunicar com Service Worker');
+  }
+}
 
   async sendWaterTestNotification(): Promise<void> {
     if (!this.registration) {
@@ -256,6 +284,9 @@ export class NotificationService {
   isSupported(): boolean {
     return 'serviceWorker' in navigator && 'Notification' in window;
   }
+
+
+  
 }
 
 export const notificationService = NotificationService.getInstance();

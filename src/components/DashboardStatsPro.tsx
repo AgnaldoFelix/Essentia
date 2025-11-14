@@ -1,4 +1,4 @@
-
+// components/DashboardStatsPro.tsx
 import React, { useState, useEffect } from "react";
 import {
   Card,
@@ -41,7 +41,8 @@ import { Confetti } from "@/components/Confetti";
 import { Medal } from "@/types/gamification";
 import { useNotifications } from "@/hooks/useNotifications";
 import { NotificationPermissionBanner } from "@/components/NotificationPermissionBanner";
-
+import { PWAInstallBanner } from "@/components/PWAInstallBanner";
+import { PWAInstallButton } from "@/components/PWAInstallButton";
 interface DashboardStatsProProps {
   currentProtein: number;
   currentCalories: number;
@@ -212,15 +213,34 @@ export const DashboardStatsPro = ({
     }
   };
 
-  // Função para testar notificações
   const handleTestNotification = async () => {
-    if (meals.length > 0) {
+    console.log('🔔 Botão de teste clicado');
+    
+    if (meals.length === 0) {
+      alert('Adicione pelo menos uma refeição para testar as notificações!');
+      return;
+    }
+
+    try {
+      console.log('📊 Status antes do teste:');
+      console.log('- Notificações habilitadas:', notificationsEnabled);
+      console.log('- Service Worker suportado:', notificationsSupported);
+      console.log('- Permissão:', notificationPermission);
+      console.log('- Inicializado:', notificationsInitialized);
+
       const success = await sendTestNotification(meals[0]);
-      if (!success) {
-        alert(
-          "Por favor, permita notificações para receber lembretes de refeições! 🔔"
-        );
+      
+      if (success) {
+        console.log('🎉 Teste de notificação bem-sucedido!');
+        // Opcional: mostrar mensagem de sucesso
+        // alert('✅ Notificação de teste enviada com sucesso!');
+      } else {
+        console.log('❌ Teste de notificação falhou');
+        alert('Por favor, permita notificações para receber lembretes de refeições! 🔔');
       }
+    } catch (error) {
+      console.error('💥 Erro inesperado no teste:', error);
+      alert('Erro ao testar notificação. Verifique o console para detalhes.');
     }
   };
 
@@ -534,8 +554,6 @@ export const DashboardStatsPro = ({
       <div className="flex w-full flex-col gap-6">
         {/* Header com botão de notificações */}
         <div className="flex justify-between items-center">
-
-
           {/* Botão de configurações de notificação */}
           <Button
             color="warning"
@@ -546,7 +564,11 @@ export const DashboardStatsPro = ({
           >
             Lembretes
           </Button>
+
+          
+        <PWAInstallButton />
         </div>
+
 
         {/* Conteúdo das Tabs */}
         <Tabs aria-label="Metas Nutricionais" className="relative">
@@ -795,7 +817,8 @@ export const DashboardStatsPro = ({
                       </div>
                     </div>
                   </div>
-{/* Table - Desktop */}
+
+ {/* Table - Desktop */}
                   <div className="hidden md:block">
                     <Table
                       aria-label="Plano alimentar diário"
@@ -1209,6 +1232,8 @@ export const DashboardStatsPro = ({
           </Tab>
         </Tabs>
       </div>
+
+       <PWAInstallBanner />
 
       <MedalModal />
       <NotificationsModal />

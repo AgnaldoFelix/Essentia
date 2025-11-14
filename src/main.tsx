@@ -3,6 +3,17 @@ import { NextUIProvider } from "@nextui-org/react";
 import App from "./App.tsx";
 import "./index.css";
 import { registerDesignColors } from "./lib/registerColors";
+import { registerServiceWorker } from '@/utils/serviceWorkerRegistration';
+
+
+// Registrar service worker na inicialização
+registerServiceWorker().then(success => {
+  if (success) {
+    console.log('🎉 Aplicação inicializada com Service Worker');
+  } else {
+    console.log('⚠️ Aplicação sem Service Worker');
+  }
+});
 
 // Polyfill for NextUI userAgent issue
 if (typeof navigator !== 'undefined' && !navigator.userAgent) {

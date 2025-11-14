@@ -1,3 +1,4 @@
+// hooks/useNotifications.ts
 import { useState, useEffect, useCallback } from 'react';
 import { notificationService } from '@/lib/notificationService';
 
@@ -42,7 +43,7 @@ export const useNotifications = () => {
     }
 
     try {
-      await notificationService.scheduleNotifications(meals, planName);
+      await notificationService.scheduleMealNotifications(meals, planName);
       return true;
     } catch (error) {
       console.error('Erro ao agendar notificações:', error);
@@ -52,13 +53,59 @@ export const useNotifications = () => {
 
   const sendTestNotification = useCallback(async (meal: any) => {
     try {
-      await notificationService.sendTestNotification(meal);
+      console.log('🔔 Iniciando teste de notificação...');
+      console.log('📊 Status da permissão:', permission);
+      console.log('🔄 Service Worker inicializado:', isInitialized);
+      
+      // Se não está inicializado, inicializa
+      if (!isInitialized) {
+        console.log('🔄 Inicializando Service Worker...');
+        await notificationService.init();
+      }
+
+      // Verifica permissão atual
+      const currentPermission = notificationService.getPermissionStatus();
+      console.log('🎯 Permissão atual:', currentPermission);
+
+      if (currentPermission !== 'granted') {
+        console.log('❌ Permissão não concedida, solicitando...');
+        const granted = await requestPermission();
+        if (!granted) {
+          throw new Error('Permissão de notificação negada pelo usuário');
+        }
+      }
+
+      console.log('✅ Permissão concedida, enviando notificação...');
+      await notificationService.sendMealTestNotification(meal);
+      console.log('🎉 Notificação de teste enviada com sucesso!');
       return true;
     } catch (error) {
-      console.error('Erro ao enviar notificação de teste:', error);
+      console.error('❌ Erro ao enviar notificação de teste:', error);
+      
+      // Se o erro for específico de permissão, mostra alerta
+      if (error instanceof Error && error.message.includes('Permissão')) {
+        return false;
+      }
+      
+      // Para outros erros, tenta uma abordagem alternativa
+      console.log('🔄 Tentando abordagem alternativa...');
+      try {
+        // Tenta usar a API de notificações diretamente como fallback
+        if (Notification.permission === 'granted') {
+          new Notification('🍽️ Teste de Notificação', {
+            body: `Teste: ${meal.name} - ${meal.time}`,
+            icon: '/icons/icon-192x192.png',
+            requireInteraction: true
+          });
+          return true;
+        }
+      } catch (fallbackError) {
+        console.error('❌ Fallback também falhou:', fallbackError);
+      }
+      
       return false;
     }
-  }, []);
+  }, [permission, isInitialized, requestPermission]);
 
   const toggleNotifications = useCallback(async (enabled: boolean) => {
     if (enabled && permission !== 'granted') {
