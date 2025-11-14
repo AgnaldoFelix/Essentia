@@ -48,6 +48,7 @@ import { MonthlyProgressChart } from "@/components/MonthlyProgressChart";
 import { ProfilePage } from "@/components/ProfilePage";
 import { UserProfile } from "@/types/gamification";
 import { WaterTracker } from "@/components/WaterTracker";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 
 const IndexPro = () => {
   const {
@@ -635,6 +636,9 @@ const IndexPro = () => {
             ))}
           </div>
         </nav>
+
+
+        <PWAInstallPrompt />
       </main>
     </div>
   );

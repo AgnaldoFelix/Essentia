@@ -1,22 +1,104 @@
-const CACHE_NAME = 'meal-reminder-v1';
+const CACHE_NAME = 'essentia-v2.0.0';
+const STATIC_CACHE = 'essentia-static-v2.0.0';
+const DYNAMIC_CACHE = 'essentia-dynamic-v2.0.0';
 const NOTIFICATION_ICON = '/meal-icon.png';
 const NOTIFICATION_BADGE = '/meal-badge.png';
 const WATER_ICON = '/water-icon.png';
 const WATER_BADGE = '/water-badge.png';
 
 
+const STATIC_FILES = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/favicon.ico',
+  '/favicon-16x16.png',
+  '/favicon-32x32.png',
+  '/android-chrome-192x192.png',
+  '/android-chrome-512x512.png',
+  '/apple-touch-icon.png',
+  '/meal-icon.png',
+  '/meal-badge.png',
+  '/water-icon.png',
+  '/water-badge.png'
+];
+
+
 // Instalação do Service Worker
 self.addEventListener('install', (event) => {
   console.log('Service Worker instalado');
+  
+  event.waitUntil(
+    caches.open(STATIC_CACHE)
+      .then(cache => {
+        console.log('Cache estático pré-carregado');
+        return cache.addAll(STATIC_FILES);
+      })
+  );
+  
   self.skipWaiting();
 });
 
 // Ativação do Service Worker
 self.addEventListener('activate', (event) => {
   console.log('Service Worker ativado');
+  
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
+            console.log('Removendo cache antigo:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
+  );
+  
   event.waitUntil(self.clients.claim());
 });
 
+
+// Estratégia: Cache First, fallback para network
+self.addEventListener('fetch', (event) => {
+  // Ignora requisições não GET
+  if (event.request.method !== 'GET') return;
+
+  event.respondWith(
+    caches.match(event.request)
+      .then(cachedResponse => {
+        // Retorna do cache se disponível
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        // Busca da rede e armazena no cache dinâmico
+        return fetch(event.request)
+          .then(networkResponse => {
+            // Só cacheamos respostas válidas
+            if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+              return networkResponse;
+            }
+
+            const responseToCache = networkResponse.clone();
+            
+            caches.open(DYNAMIC_CACHE)
+              .then(cache => {
+                cache.put(event.request, responseToCache);
+              });
+
+            return networkResponse;
+          })
+          .catch(() => {
+            // Fallback para página offline se necessário
+            if (event.request.destination === 'document') {
+              return caches.match('/offline.html');
+            }
+          });
+      })
+  );
+});
 // Recebimento de mensagens da aplicação
 self.addEventListener('message', (event) => {
   const { type, notifications, alarms, notification, body } = event.data;

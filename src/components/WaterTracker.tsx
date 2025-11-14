@@ -315,7 +315,7 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ onMedalEarned }) => 
           <h3 className="text-xl font-bold text-orange-800">Lembretes de Água</h3>
         </ModalHeader>
         <ModalBody>
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto max-h-[70vh]">
             <div className="text-center mb-4">
               <div className="text-3xl mb-2">⏰💧</div>
               <p className="text-default-600">
