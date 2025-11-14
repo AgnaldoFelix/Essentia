@@ -1,4 +1,5 @@
-const CACHE_NAME = 'essentia-v3.0.0';
+// public/service-worker.js
+const CACHE_NAME = 'essentia-nutrition-v1.0.0';
 
 // Instalação do Service Worker
 self.addEventListener('install', (event) => {
@@ -33,7 +34,7 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// Agendar notificações de refeições
+// Agendar notificações de refeições (Cross-browser)
 async function scheduleMealNotifications(notifications) {
   console.log('🍽️ Agendando notificações de refeições:', notifications);
   
@@ -56,32 +57,47 @@ async function scheduleMealNotifications(notifications) {
     console.log(`⏰ Agendando notificação: ${title} em ${delay}ms`);
 
     if (delay > 0) {
-      setTimeout(() => {
-        console.log('🔔 Disparando notificação:', title);
-        self.registration.showNotification(title, {
-          body,
-          icon: '/icons/icon-192x192.png',
-          badge: '/icons/icon-192x192.png',
-          tag,
-          data,
-          requireInteraction: true,
-          vibrate: [200, 100, 200],
-          actions: [
-            {
-              action: 'open',
-              title: 'Abrir App'
-            }
-          ]
-        });
-
-        // Se for recorrente, agendamos novamente para o próximo dia
-        if (recurring) {
-          const nextDay = scheduledTime + 24 * 60 * 60 * 1000;
-          const nextNotificationData = {
-            ...notificationData,
-            scheduledTime: nextDay
+      setTimeout(async () => {
+        try {
+          console.log('🔔 Disparando notificação:', title);
+          
+          // Configuração cross-browser para notificações
+          const notificationOptions = {
+            body,
+            icon: '/Essentia.png', // Ícone do app - Essentia.png
+            badge: '/Essentia.png', // Badge para mobile - Essentia.png
+            tag,
+            data,
+            requireInteraction: true,
+            // Vibrate só funciona em alguns browsers
+            ...(navigator.vibrate && { vibrate: [200, 100, 200] }),
+            actions: [
+              {
+                action: 'open',
+                title: 'Abrir App'
+              }
+            ]
           };
-          scheduleMealNotifications([nextNotificationData]);
+
+          // Remove opções não suportadas no Safari
+          if (isSafari()) {
+            delete notificationOptions.badge;
+            delete notificationOptions.actions;
+          }
+
+          await self.registration.showNotification(title, notificationOptions);
+
+          // Se for recorrente, agendamos novamente para o próximo dia
+          if (recurring) {
+            const nextDay = scheduledTime + 24 * 60 * 60 * 1000;
+            const nextNotificationData = {
+              ...notificationData,
+              scheduledTime: nextDay
+            };
+            scheduleMealNotifications([nextNotificationData]);
+          }
+        } catch (error) {
+          console.error('❌ Erro ao mostrar notificação:', error);
         }
       }, delay);
     }
@@ -92,7 +108,6 @@ async function scheduleMealNotifications(notifications) {
 async function scheduleWaterAlarms(alarms) {
   console.log('💧 Agendando alarmes de água:', alarms);
   
-  // Primeiro, cancelamos todas as notificações de água existentes
   const allRegistrations = await self.registration.getNotifications();
   const waterNotifications = allRegistrations.filter(n => 
     n.tag && n.tag.startsWith('water-alarm-')
@@ -102,7 +117,6 @@ async function scheduleWaterAlarms(alarms) {
     notification.close();
   }
 
-  // Agendamos as novas notificações
   for (let alarmData of alarms) {
     const { title, body, tag, scheduledTime, recurring, data } = alarmData;
     const now = Date.now();
@@ -111,32 +125,43 @@ async function scheduleWaterAlarms(alarms) {
     console.log(`⏰ Agendando alarme de água: ${title} em ${delay}ms`);
 
     if (delay > 0) {
-      setTimeout(() => {
-        console.log('🔔 Disparando alarme de água:', title);
-        self.registration.showNotification(title, {
-          body,
-          icon: '/icons/icon-192x192.png',
-          badge: '/icons/icon-192x192.png',
-          tag,
-          data,
-          requireInteraction: true,
-          vibrate: [200, 100, 200],
-          actions: [
-            {
-              action: 'open',
-              title: 'Abrir App'
-            }
-          ]
-        });
-
-        // Se for recorrente, agendamos novamente para o próximo dia
-        if (recurring) {
-          const nextDay = scheduledTime + 24 * 60 * 60 * 1000;
-          const nextAlarmData = {
-            ...alarmData,
-            scheduledTime: nextDay
+      setTimeout(async () => {
+        try {
+          console.log('🔔 Disparando alarme de água:', title);
+          
+          const notificationOptions = {
+            body,
+            icon: '/Essentia.png', // Ícone do app - Essentia.png
+            badge: '/Essentia.png', // Badge para mobile - Essentia.png
+            tag,
+            data,
+            requireInteraction: true,
+            ...(navigator.vibrate && { vibrate: [200, 100, 200] }),
+            actions: [
+              {
+                action: 'open',
+                title: 'Abrir App'
+              }
+            ]
           };
-          scheduleWaterAlarms([nextAlarmData]);
+
+          if (isSafari()) {
+            delete notificationOptions.badge;
+            delete notificationOptions.actions;
+          }
+
+          await self.registration.showNotification(title, notificationOptions);
+
+          if (recurring) {
+            const nextDay = scheduledTime + 24 * 60 * 60 * 1000;
+            const nextAlarmData = {
+              ...alarmData,
+              scheduledTime: nextDay
+            };
+            scheduleWaterAlarms([nextAlarmData]);
+          }
+        } catch (error) {
+          console.error('❌ Erro ao mostrar notificação de água:', error);
         }
       }, delay);
     }
@@ -144,7 +169,6 @@ async function scheduleWaterAlarms(alarms) {
 }
 
 // Enviar notificação de teste de refeição
-// Enviar notificação de teste de refeição (CORRIGIDO)
 async function sendTestMealNotification(notificationData) {
   console.log('🧪 [SW] Enviando notificação de teste de refeição:', notificationData);
   
@@ -152,13 +176,13 @@ async function sendTestMealNotification(notificationData) {
     const title = notificationData.title || '🍽️ Teste de Notificação';
     const body = notificationData.body || 'Esta é uma notificação de teste!';
     
-    await self.registration.showNotification(title, {
+    const notificationOptions = {
       body: body,
-      icon: '/icons/icon-192x192.png',
-      badge: '/icons/icon-192x192.png',
+      icon: '/Essentia.png', // Ícone do app - Essentia.png
+      badge: '/Essentia.png', // Badge para mobile - Essentia.png
       tag: 'test-notification',
       requireInteraction: true,
-      vibrate: [200, 100, 200],
+      ...(navigator.vibrate && { vibrate: [200, 100, 200] }),
       actions: [
         {
           action: 'open',
@@ -170,21 +194,18 @@ async function sendTestMealNotification(notificationData) {
         mealId: notificationData.mealId,
         timestamp: Date.now()
       }
-    });
+    };
+
+    if (isSafari()) {
+      delete notificationOptions.badge;
+      delete notificationOptions.actions;
+    }
+
+    await self.registration.showNotification(title, notificationOptions);
     
     console.log('✅ [SW] Notificação de teste exibida com sucesso!');
   } catch (error) {
     console.error('❌ [SW] Erro ao exibir notificação de teste:', error);
-    
-    // Fallback: tenta mostrar notificação mesmo com erro
-    try {
-      await self.registration.showNotification('🍽️ Teste de Notificação', {
-        body: 'Notificação de teste do Essentia!',
-        icon: '/icons/icon-192x192.png'
-      });
-    } catch (fallbackError) {
-      console.error('❌ [SW] Fallback também falhou:', fallbackError);
-    }
   }
 }
 
@@ -192,16 +213,22 @@ async function sendTestMealNotification(notificationData) {
 async function sendTestWaterNotification() {
   console.log('🧪 Enviando notificação de teste de água');
   
-  await self.registration.showNotification('💧 Teste de Notificação de Água', {
+  const notificationOptions = {
     body: 'Esta é uma notificação de teste do Essentia! Se você está vendo isso, as notificações estão funcionando! 🎉',
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-192x192.png',
+    icon: '/Essentia.png', // Ícone do app - Essentia.png
+    badge: '/Essentia.png', // Badge para mobile - Essentia.png
     requireInteraction: true,
-    vibrate: [200, 100, 200]
-  });
+    ...(navigator.vibrate && { vibrate: [200, 100, 200] })
+  };
+
+  if (isSafari()) {
+    delete notificationOptions.badge;
+  }
+
+  await self.registration.showNotification('💧 Teste de Notificação de Água', notificationOptions);
 }
 
-// Limpar notificações de refeições
+// Limpar notificações
 async function clearMealNotifications() {
   const allRegistrations = await self.registration.getNotifications();
   const mealNotifications = allRegistrations.filter(n => 
@@ -213,7 +240,6 @@ async function clearMealNotifications() {
   }
 }
 
-// Limpar alarmes de água
 async function clearWaterAlarms() {
   const allRegistrations = await self.registration.getNotifications();
   const waterNotifications = allRegistrations.filter(n => 
@@ -225,6 +251,11 @@ async function clearWaterAlarms() {
   }
 }
 
+// Detectar Safari
+function isSafari() {
+  return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+}
+
 // Lidar com clique em notificações
 self.addEventListener('notificationclick', (event) => {
   console.log('👆 Notificação clicada:', event.notification.tag);
@@ -232,69 +263,28 @@ self.addEventListener('notificationclick', (event) => {
   
   event.waitUntil(
     self.clients.matchAll({ type: 'window' }).then((clientList) => {
+      // Focar em uma janela existente se possível
       for (const client of clientList) {
         if (client.url.includes('/') && 'focus' in client) {
           return client.focus();
         }
       }
+      // Abrir nova janela se não houver uma aberta
       if (self.clients.openWindow) {
         return self.clients.openWindow('/');
       }
     })
   );
-
-  const urlsToCache = [
-  '/',
-  '/static/js/bundle.js',
-  '/static/css/main.css',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
-  '/manifest.json'
-];
-
-// Instalação - Cache de recursos essenciais
-self.addEventListener('install', (event) => {
-  console.log('🛠️ Service Worker instalando...');
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('📦 Cache aberto');
-        return cache.addAll(urlsToCache);
-      })
-      .then(() => {
-        console.log('✅ Recursos em cache');
-        return self.skipWaiting();
-      })
-  );
 });
 
-// Ativação - Limpar caches antigos
-self.addEventListener('activate', (event) => {
-  console.log('🚀 Service Worker ativado');
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('🗑️ Removendo cache antigo:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
-  );
-});
-
-// Interceptar requests - estratégia Cache First
+// Cache para funcionamento offline
 self.addEventListener('fetch', (event) => {
-  if (event.request.url.startsWith('http')) {
+  if (event.request.url.startsWith('http') && 
+      (event.request.url.includes('/Essentia.png') || 
+       event.request.url.includes('/manifest.json'))) {
     event.respondWith(
       caches.match(event.request)
-        .then((response) => {
-          // Retorna do cache se encontrado, senão faz fetch
-          return response || fetch(event.request);
-        })
+        .then(response => response || fetch(event.request))
     );
   }
-});
 });
