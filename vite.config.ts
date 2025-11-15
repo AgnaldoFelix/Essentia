@@ -9,7 +9,6 @@ export default defineConfig({
   },
   plugins: [
     react({
-      // Configuração básica e estável
       jsxRuntime: 'automatic'
     }),
   ],
@@ -21,15 +20,6 @@ export default defineConfig({
   define: {
     'process.env': {},
     'global': 'globalThis'
-  },
-  optimizeDeps: {
-    include: [
-      'react', 
-      'react-dom', 
-      '@heroui/react',
-      'lucide-react'
-    ],
-    exclude: ['@vite/client', '@vite/env']
   },
   build: {
     outDir: "dist",
