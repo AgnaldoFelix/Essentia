@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { UserProfile } from '@/types/gamification';
 import { AvatarCreator } from '@/components/AvatarCreator';
+import { useOnlineUsers } from '@/contexts/OnlineUsersContext'; // Importar o hook
 
 interface ProfilePageProps {
   profile: UserProfile;
@@ -42,6 +43,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<UserProfile>(profile);
   const [isAvatarCreatorOpen, setIsAvatarCreatorOpen] = useState(false);
+  
+  // Usar o hook para acessar as funções do contexto
+  const { updateUserProfile, initializeUser, currentUser } = useOnlineUsers();
 
   // Calcular IMC automaticamente
   useEffect(() => {
@@ -52,8 +56,27 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     }
   }, [formData.height, formData.weight]);
 
-  const handleSave = () => {
+  // Função auxiliar para gerar ID de usuário
+  const generateUserId = () => `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  const handleSave = async () => {
+    // Salvar localmente
     onProfileUpdate(formData);
+    
+    // Criar/atualizar usuário no Supabase
+    if (currentUser) {
+      await updateUserProfile(formData);
+    } else {
+      // Se não há usuário atual, criar um novo
+      const userId = generateUserId();
+      await initializeUser({
+        id: userId,
+        username: formData.nickname || formData.name || 'Usuário',
+        age: formData.age || 25,
+        avatar: formData.avatar,
+      });
+    }
+    
     setIsEditing(false);
   };
 
