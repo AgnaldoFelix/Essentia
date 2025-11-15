@@ -3,13 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta http-equiv="Content-Security-Policy" 
-          content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;
-                   connect-src * 'unsafe-inline' 'unsafe-eval' data: blob:;
-                   script-src * 'unsafe-inline' 'unsafe-eval' data: blob:;
-                   style-src * 'unsafe-inline' 'unsafe-eval' data: blob:;
-                   font-src * 'unsafe-inline' 'unsafe-eval' data: blob:;
-                   img-src * 'unsafe-inline' 'unsafe-eval' data: blob:;" />
     
     <!-- Título e descrição -->
     <title>Essentia - Seu Controle Nutricional Inteligente</title>
@@ -33,23 +26,7 @@
     
     <!-- Apple Touch Icons -->
     <link rel="apple-touch-icon" href="/Essentia.png" />
-    <link rel="apple-touch-icon" sizes="57x57" href="/Essentia.png" />
-    <link rel="apple-touch-icon" sizes="60x60" href="/Essentia.png" />
-    <link rel="apple-touch-icon" sizes="72x72" href="/Essentia.png" />
-    <link rel="apple-touch-icon" sizes="76x76" href="/Essentia.png" />
-    <link rel="apple-touch-icon" sizes="114x114" href="/Essentia.png" />
-    <link rel="apple-touch-icon" sizes="120x120" href="/Essentia.png" />
-    <link rel="apple-touch-icon" sizes="144x144" href="/Essentia.png" />
-    <link rel="apple-touch-icon" sizes="152x152" href="/Essentia.png" />
-    <link rel="apple-touch-icon" sizes="167x167" href="/Essentia.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/Essentia.png" />
-    <link rel="apple-touch-icon" sizes="192x192" href="/Essentia.png" />
-    <link rel="apple-touch-icon" sizes="512x512" href="/Essentia.png" />
-
-    <!-- Android Icons -->
-    <link rel="icon" sizes="192x192" href="/Essentia.png" />
-    <link rel="icon" sizes="512x512" href="/Essentia.png" />
-
+    
     <!-- Web App Manifest -->
     <link rel="manifest" href="/manifest.json" crossorigin="use-credentials" />
 
@@ -59,10 +36,6 @@
     <meta property="og:title" content="Essentia - Seu Controle Nutricional Inteligente" />
     <meta property="og:description" content="Controle suas refeições, hidratação e conquiste medalhas por seus objetivos! Acompanhamento nutricional completo e gamificado." />
     <meta property="og:image" content="/Essentia.png" />
-    <meta property="og:image:width" content="512" />
-    <meta property="og:image:height" content="512" />
-    <meta property="og:locale" content="pt_BR" />
-    <meta property="og:site_name" content="Essentia" />
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
@@ -73,179 +46,10 @@
 
     <!-- Preload para performance -->
     <link rel="preload" href="/Essentia.png" as="image" type="image/png" />
-    
-    <!-- Segurança -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;" />
   </head>
 
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    
-    <!-- Script otimizado para PWA -->
-    <script>
-      // Debug e inicialização do PWA
-      console.log('🚀 Essentia - Inicializando aplicação...');
-      
-      // Registrar Service Worker para PWA
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/service-worker.js')
-            .then(function(registration) {
-              console.log('✅ Service Worker registrado com sucesso:', registration);
-              console.log('📦 Escopo do Service Worker:', registration.scope);
-              
-              // Verificar se há updates
-              registration.addEventListener('updatefound', () => {
-                const newWorker = registration.installing;
-                console.log('🔄 Nova versão do Service Worker encontrada:', newWorker);
-                
-                newWorker.addEventListener('statechange', () => {
-                  console.log('📝 Estado do novo Service Worker:', newWorker.state);
-                });
-              });
-            })
-            .catch(function(error) {
-              console.error('❌ Falha no registro do Service Worker:', error);
-            });
-        });
-
-        // Monitorar mudanças no Service Worker
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          console.log('🔄 Controller do Service Worker mudou - recarregando página...');
-          window.location.reload();
-        });
-      } else {
-        console.log('ℹ️ Service Worker não suportado neste navegador');
-      }
-
-      // Detectar modo de exibição PWA
-      function checkDisplayMode() {
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-        const isFullscreen = window.matchMedia('(display-mode: fullscreen)').matches;
-        const isMinimalUI = window.matchMedia('(display-mode: minimal-ui)').matches;
-        const isIOSStandalone = window.navigator.standalone;
-        
-        const isPWA = isStandalone || isFullscreen || isMinimalUI || isIOSStandalone;
-        
-        console.log('📱 Modo de Exibição:', {
-          standalone: isStandalone,
-          fullscreen: isFullscreen,
-          minimalUI: isMinimalUI,
-          iOSStandalone: isIOSStandalone,
-          isPWA: isPWA
-        });
-
-        if (isPWA) {
-          document.documentElement.classList.add('pwa-mode');
-          console.log('🎉 Executando como PWA instalado!');
-        } else {
-          document.documentElement.classList.add('browser-mode');
-          console.log('🌐 Executando no navegador');
-        }
-      }
-
-      // Verificar permissões de notificação
-      function checkNotificationPermission() {
-        console.log('🔔 Status da permissão de notificação:', Notification.permission);
-        
-        if (Notification.permission === 'default') {
-          console.log('💡 Notificações: Permissão não solicitada ainda');
-        } else if (Notification.permission === 'granted') {
-          console.log('✅ Notificações: Permissão concedida');
-        } else if (Notification.permission === 'denied') {
-          console.log('❌ Notificações: Permissão negada');
-        }
-      }
-
-      // Detectar dispositivo e navegador
-      function detectDevice() {
-        const userAgent = navigator.userAgent;
-        const isIOS = /iPad|iPhone|iPod/.test(userAgent);
-        const isAndroid = /Android/.test(userAgent);
-        const isChrome = /Chrome/.test(userAgent);
-        const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
-        
-        console.log('📊 Detecção de Dispositivo:', {
-          userAgent: userAgent.substring(0, 100) + '...',
-          isIOS: isIOS,
-          isAndroid: isAndroid,
-          isChrome: isChrome,
-          isSafari: isSafari,
-          platform: navigator.platform,
-          vendor: navigator.vendor
-        });
-
-        // Adicionar classes CSS para targeting específico
-        if (isIOS) document.documentElement.classList.add('ios-device');
-        if (isAndroid) document.documentElement.classList.add('android-device');
-        if (isChrome) document.documentElement.classList.add('chrome-browser');
-        if (isSafari) document.documentElement.classList.add('safari-browser');
-      }
-
-      // Inicializar verificações quando DOM estiver pronto
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() {
-          checkDisplayMode();
-          checkNotificationPermission();
-          detectDevice();
-        });
-      } else {
-        checkDisplayMode();
-        checkNotificationPermission();
-        detectDevice();
-      }
-
-      // Monitorar mudanças no display mode (quando instala/desinstala PWA)
-      window.matchMedia('(display-mode: standalone)').addEventListener('change', (e) => {
-        console.log('🔄 Mudança no modo de display:', e.matches ? 'PWA' : 'Navegador');
-        checkDisplayMode();
-      });
-
-      // Evento quando o PWA é instalado
-      window.addEventListener('appinstalled', (evt) => {
-        console.log('🎉 PWA instalado com sucesso!', evt);
-        // Aqui você pode enviar analytics ou mostrar mensagem de boas-vindas
-      });
-
-      // Evento beforeinstallprompt (para Chrome/Android)
-      window.addEventListener('beforeinstallprompt', (e) => {
-        console.log('🎯 PWA pode ser instalado - beforeinstallprompt disparado');
-        e.preventDefault();
-        // Você pode salvar este evento para mostrar o banner de instalação depois
-        window.deferredInstallPrompt = e;
-      });
-
-      console.log('✨ Essentia - Script de inicialização concluído');
-    </script>
-
-    <!-- CSS para modos específicos -->
-    <style>
-      /* Estilos para modo PWA */
-      .pwa-mode {
-        /* Adicione estilos específicos para quando estiver rodando como PWA */
-      }
-      
-      .browser-mode {
-        /* Estilos para modo navegador */
-      }
-      
-      /* Melhorar experiência em dispositivos móveis */
-      @media (max-width: 768px) {
-        body {
-          -webkit-tap-highlight-color: transparent;
-          -webkit-touch-callout: none;
-          -webkit-user-select: none;
-          user-select: none;
-        }
-      }
-      
-      /* Prevenir zoom em inputs em iOS */
-      @media screen and (max-width: 768px) {
-        input, select, textarea {
-          font-size: 16px !important;
-        }
-      }
-    </style>
   </body>
 </html>
