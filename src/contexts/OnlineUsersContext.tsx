@@ -1,7 +1,8 @@
 // contexts/OnlineUsersContext.tsx
+import { supabase } from '@/lib/supabase';
 import { UserProfile } from '@/types/gamification';
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '@/lib/supabase';
+
 
 export interface OnlineUser {
   id: string;
@@ -42,6 +43,26 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [isProfileEnabled, setIsProfileEnabled] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
+
+  const testSupabaseConnection = async () => {
+  try {
+    console.log('Testando conexão com Supabase...');
+    
+    // Teste simples - buscar contagem de usuários
+    const { count, error } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true });
+    
+    if (error) {
+      console.error('Erro na conexão com Supabase:', error);
+    } else {
+      console.log('Conexão com Supabase OK. Total de usuários:', count);
+    }
+  } catch (error) {
+    console.error('Erro no teste de conexão:', error);
+  }
+};
+
   // Carregar dados do usuário atual do localStorage
   useEffect(() => {
     const savedUser = localStorage.getItem('essentia_current_user');
@@ -73,6 +94,8 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
     
     // Configurar real-time subscriptions
     setupRealtimeSubscriptions();
+    testSupabaseConnection();
+
   }, []);
 
   const loadOnlineUsersFromSupabase = async () => {
@@ -330,23 +353,22 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
   };
 
   const addMessage = async (messageData: Omit<ChatMessage, 'id'>) => {
-    try {
-      // Gerar ID temporário
-      const tempId = generateMessageId();
-      const newMessage: ChatMessage = {
-        ...messageData,
-        id: tempId,
-      };
+  try {
+    const tempId = generateMessageId();
+    const newMessage: ChatMessage = {
+      ...messageData,
+      id: tempId,
+    };
 
-      // Adicionar localmente imediatamente para feedback rápido
-      setChatMessages(prev => [...prev, newMessage]);
-      
-      // Atualizar localStorage
-      const updatedMessages = [...chatMessages, newMessage];
-      localStorage.setItem('essentia_chat_messages', JSON.stringify(updatedMessages));
+    // Adicionar localmente imediatamente
+    setChatMessages(prev => [...prev, newMessage]);
+    
+    const updatedMessages = [...chatMessages, newMessage];
+    localStorage.setItem('essentia_chat_messages', JSON.stringify(updatedMessages));
 
-      // Salvar no Supabase (para mensagens de usuário, não de sistema)
-      if (messageData.type === 'text' && messageData.userId !== 'system') {
+    // Tentar salvar no Supabase apenas se não for mensagem de sistema
+    if (messageData.type === 'text' && messageData.userId !== 'system') {
+      try {
         const { error } = await supabase
           .from('chat_messages')
           .insert({
@@ -359,14 +381,17 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
           });
 
         if (error) {
-          console.error('Erro ao salvar mensagem no Supabase:', error);
+          console.warn('Não foi possível salvar mensagem no Supabase, usando apenas local:', error);
         }
+      } catch (supabaseError) {
+        console.warn('Erro ao conectar com Supabase, usando storage local:', supabaseError);
       }
-
-    } catch (error) {
-      console.error('Erro ao adicionar mensagem:', error);
     }
-  };
+
+  } catch (error) {
+    console.error('Erro ao adicionar mensagem:', error);
+  }
+};
 
   return (
     <OnlineUsersContext.Provider value={{
