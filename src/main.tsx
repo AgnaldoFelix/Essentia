@@ -27,9 +27,9 @@ if (typeof navigator !== 'undefined' && !navigator.userAgent) {
 registerDesignColors();
 
 createRoot(document.getElementById("root")!).render(
-  <OnlineUsersProvider>
   <NextUIProvider locale="pt-BR">
+  <OnlineUsersProvider>
     <App />
-  </NextUIProvider>
   </OnlineUsersProvider>
+  </NextUIProvider>
 );

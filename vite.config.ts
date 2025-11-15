@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
+import { componentTagger } from "vite-plugin-component-tagger";
 
 export default defineConfig(({ mode }) => ({
   server: {
@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    
   },
   build: {
     outDir: "dist",

@@ -1,8 +1,7 @@
 // contexts/OnlineUsersContext.tsx
-import { supabase } from '@/lib/supabase';
 import { UserProfile } from '@/types/gamification';
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-
+import { supabase } from '@/lib/supabase';
 
 export interface OnlineUser {
   id: string;
@@ -35,7 +34,7 @@ interface OnlineUsersContextType {
   updateCurrentUser: (userData: Partial<OnlineUser>) => void;
 }
 
-export const OnlineUsersContext = createContext<OnlineUsersContextType | null>(null);
+export const OnlineUsersContext = createContext<OnlineUsersContextType | undefined>(undefined);
 
 export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
@@ -43,145 +42,45 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [isProfileEnabled, setIsProfileEnabled] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
-
-  const testSupabaseConnection = async () => {
-  try {
-    console.log('Testando conexão com Supabase...');
-    
-    // Teste simples - buscar contagem de usuários
-    const { count, error } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true });
-    
-    if (error) {
-      console.error('Erro na conexão com Supabase:', error);
-    } else {
-      console.log('Conexão com Supabase OK. Total de usuários:', count);
-    }
-  } catch (error) {
-    console.error('Erro no teste de conexão:', error);
-  }
-};
-
-  // Carregar dados do usuário atual do localStorage
+  // Carregar dados iniciais
   useEffect(() => {
-    const savedUser = localStorage.getItem('essentia_current_user');
-    const savedProfileEnabled = localStorage.getItem('essentia_profile_enabled');
-    const savedMessages = localStorage.getItem('essentia_chat_messages');
+    const loadInitialData = () => {
+      try {
+        const savedUser = localStorage.getItem('essentia_current_user');
+        const savedProfileEnabled = localStorage.getItem('essentia_profile_enabled');
+        const savedMessages = localStorage.getItem('essentia_chat_messages');
 
-    if (savedUser) {
-      const userData = JSON.parse(savedUser);
-      setCurrentUser({
-        ...userData,
-        lastSeen: new Date(userData.lastSeen),
-      });
-    }
-
-    if (savedProfileEnabled) {
-      setIsProfileEnabled(JSON.parse(savedProfileEnabled));
-    }
-
-    if (savedMessages) {
-      const messages = JSON.parse(savedMessages).map((msg: any) => ({
-        ...msg,
-        timestamp: new Date(msg.timestamp),
-      }));
-      setChatMessages(messages);
-    }
-
-    // Carregar usuários do Supabase
-    loadOnlineUsersFromSupabase();
-    
-    // Configurar real-time subscriptions
-    setupRealtimeSubscriptions();
-    testSupabaseConnection();
-
-  }, []);
-
-  const loadOnlineUsersFromSupabase = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('is_online', true)
-        .order('username');
-
-      if (error) {
-        console.error('Erro ao carregar usuários online:', error);
-        return;
-      }
-
-      if (data) {
-        const users: OnlineUser[] = data.map(user => ({
-          id: user.id,
-          name: user.username,
-          avatar: user.avatar || '/Essentia.png',
-          isOnline: user.is_online,
-          lastSeen: new Date(user.last_seen || user.updated_at),
-          profileEnabled: user.profile_enabled,
-        }));
-        setOnlineUsers(users);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar usuários do Supabase:', error);
-    }
-  };
-
-  const setupRealtimeSubscriptions = () => {
-    // Subscription para usuários online
-    const userSubscription = supabase
-      .channel('online-users')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'users',
-        },
-        (payload) => {
-          loadOnlineUsersFromSupabase(); // Recarregar lista quando houver mudanças
+        if (savedUser) {
+          const userData = JSON.parse(savedUser);
+          setCurrentUser({
+            ...userData,
+            lastSeen: new Date(userData.lastSeen),
+          });
         }
-      )
-      .subscribe();
 
-    // Subscription para mensagens do chat
-    const messageSubscription = supabase
-      .channel('chat-messages')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-        },
-        (payload) => {
-          const newMessage = payload.new as any;
-          const message: ChatMessage = {
-            id: newMessage.id,
-            userId: newMessage.user_id,
-            userName: newMessage.user_name,
-            userAvatar: newMessage.user_avatar,
-            message: newMessage.message,
-            timestamp: new Date(newMessage.created_at),
-            type: newMessage.type,
-          };
-          setChatMessages(prev => [...prev, message]);
-          
-          // Atualizar localStorage
-          const updatedMessages = [...chatMessages, message];
-          localStorage.setItem('essentia_chat_messages', JSON.stringify(updatedMessages));
+        if (savedProfileEnabled) {
+          setIsProfileEnabled(JSON.parse(savedProfileEnabled));
         }
-      )
-      .subscribe();
 
-    return () => {
-      userSubscription.unsubscribe();
-      messageSubscription.unsubscribe();
+        if (savedMessages) {
+          const messages = JSON.parse(savedMessages).map((msg: any) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp),
+          }));
+          setChatMessages(messages);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados iniciais:', error);
+      }
     };
-  };
+
+    loadInitialData();
+  }, []);
 
   const initializeUser = async (userData: { id: string; username: string; age: number; avatar?: string }) => {
     try {
+      console.log('Inicializando usuário:', userData);
+      
       const { data, error } = await supabase
         .from('users')
         .upsert(
@@ -220,11 +119,9 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
         setCurrentUser(onlineUser);
         setIsProfileEnabled(true);
 
-        // Atualizar localStorage
         localStorage.setItem('essentia_current_user', JSON.stringify(onlineUser));
         localStorage.setItem('essentia_profile_enabled', 'true');
 
-        // Adicionar usuário à lista local
         setOnlineUsers(prev => {
           const existingUser = prev.find(u => u.id === onlineUser.id);
           if (existingUser) {
@@ -233,7 +130,6 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
           return [...prev, onlineUser];
         });
 
-        // Mensagem de boas-vindas
         addMessage({
           userId: 'system',
           userName: 'Sistema',
@@ -259,7 +155,6 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
         avatar: profile.avatar,
       });
 
-      // Mensagem de sistema
       addMessage({
         userId: 'system',
         userName: 'Sistema',
@@ -280,7 +175,6 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     if (currentUser) {
       try {
-        // Atualizar no Supabase
         const { error } = await supabase
           .from('users')
           .update({
@@ -292,9 +186,9 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
 
         if (error) {
           console.error('Erro ao atualizar status no Supabase:', error);
+          return;
         }
 
-        // Atualizar usuário local
         const updatedUser = {
           ...currentUser,
           isOnline: newState,
@@ -305,7 +199,6 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
         setCurrentUser(updatedUser);
         localStorage.setItem('essentia_current_user', JSON.stringify(updatedUser));
 
-        // Atualizar lista de usuários online
         setOnlineUsers(prev => {
           if (newState) {
             const exists = prev.find(user => user.id === updatedUser.id);
@@ -321,7 +214,6 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
           }
         });
 
-        // Mensagem de sistema
         addMessage({
           userId: 'system',
           userName: 'Sistema',
@@ -343,7 +235,6 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
       setCurrentUser(updatedUser);
       localStorage.setItem('essentia_current_user', JSON.stringify(updatedUser));
 
-      // Atualizar na lista de usuários online
       setOnlineUsers(prev => 
         prev.map(user => 
           user.id === updatedUser.id ? updatedUser : user
@@ -353,22 +244,19 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
   };
 
   const addMessage = async (messageData: Omit<ChatMessage, 'id'>) => {
-  try {
-    const tempId = generateMessageId();
-    const newMessage: ChatMessage = {
-      ...messageData,
-      id: tempId,
-    };
+    try {
+      const tempId = generateMessageId();
+      const newMessage: ChatMessage = {
+        ...messageData,
+        id: tempId,
+      };
 
-    // Adicionar localmente imediatamente
-    setChatMessages(prev => [...prev, newMessage]);
-    
-    const updatedMessages = [...chatMessages, newMessage];
-    localStorage.setItem('essentia_chat_messages', JSON.stringify(updatedMessages));
+      setChatMessages(prev => [...prev, newMessage]);
+      
+      const updatedMessages = [...chatMessages, newMessage];
+      localStorage.setItem('essentia_chat_messages', JSON.stringify(updatedMessages));
 
-    // Tentar salvar no Supabase apenas se não for mensagem de sistema
-    if (messageData.type === 'text' && messageData.userId !== 'system') {
-      try {
+      if (messageData.type === 'text' && messageData.userId !== 'system') {
         const { error } = await supabase
           .from('chat_messages')
           .insert({
@@ -381,42 +269,40 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
           });
 
         if (error) {
-          console.warn('Não foi possível salvar mensagem no Supabase, usando apenas local:', error);
+          console.error('Erro ao salvar mensagem no Supabase:', error);
         }
-      } catch (supabaseError) {
-        console.warn('Erro ao conectar com Supabase, usando storage local:', supabaseError);
       }
-    }
 
-  } catch (error) {
-    console.error('Erro ao adicionar mensagem:', error);
-  }
-};
+    } catch (error) {
+      console.error('Erro ao adicionar mensagem:', error);
+    }
+  };
+
+  const value: OnlineUsersContextType = {
+    onlineUsers: onlineUsers.filter(user => user.profileEnabled && user.isOnline),
+    currentUser,
+    isProfileEnabled,
+    toggleProfile,
+    addMessage,
+    chatMessages,
+    updateUserProfile,
+    initializeUser,
+    updateCurrentUser,
+  };
 
   return (
-    <OnlineUsersContext.Provider value={{
-      onlineUsers: onlineUsers.filter(user => user.profileEnabled && user.isOnline),
-      currentUser,
-      isProfileEnabled,
-      toggleProfile,
-      addMessage,
-      chatMessages,
-      updateUserProfile,
-      initializeUser,
-      updateCurrentUser,
-    }}>
+    <OnlineUsersContext.Provider value={value}>
       {children}
     </OnlineUsersContext.Provider>
   );
 };
 
 // Helper functions
-const generateUserId = () => `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 const generateMessageId = () => `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 export const useOnlineUsers = () => {
   const context = useContext(OnlineUsersContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useOnlineUsers must be used within an OnlineUsersProvider');
   }
   return context;
