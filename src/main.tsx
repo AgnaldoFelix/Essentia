@@ -6,30 +6,43 @@ import { registerDesignColors } from "./lib/registerColors";
 import { registerServiceWorker } from '@/utils/serviceWorkerRegistration';
 import { OnlineUsersProvider } from '@/contexts/OnlineUsersContext';
 
-// Registrar service worker na inicialização
+// Polyfill para garantir compatibilidade
+if (typeof global === 'undefined') {
+  (window as any).global = window;
+}
+
+// Registrar service worker
 registerServiceWorker().then(success => {
   if (success) {
-    console.log('🎉 Aplicação inicializada com Service Worker');
+    console.log('🎉 Service Worker registrado');
   } else {
-    console.log('⚠️ Aplicação sem Service Worker');
+    console.log('⚠️ Service Worker não disponível');
   }
 });
 
-// Polyfill for NextUI userAgent issue
+// Polyfill para NextUI
 if (typeof navigator !== 'undefined' && !navigator.userAgent) {
   Object.defineProperty(navigator, 'userAgent', {
-    get: () => 'Mozilla/5.0',
+    get: () => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     configurable: true
   });
 }
 
-// Registrar variáveis CSS com a paleta do projeto
+// Registrar cores
 registerDesignColors();
 
-createRoot(document.getElementById("root")!).render(
+// Renderizar aplicação
+const container = document.getElementById("root");
+if (!container) {
+  throw new Error('Root container not found');
+}
+
+const root = createRoot(container);
+
+root.render(
   <NextUIProvider locale="pt-BR">
-  <OnlineUsersProvider>
-    <App />
-  </OnlineUsersProvider>
+    <OnlineUsersProvider>
+      <App />
+    </OnlineUsersProvider>
   </NextUIProvider>
 );

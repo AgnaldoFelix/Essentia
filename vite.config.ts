@@ -1,22 +1,35 @@
-import componentTagger from "vite-plugin-component-tagger"
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
+import react from "@vitejs/plugin-react";
 import path from "path";
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig({
   server: {
     host: "::",
     port: 3000,
   },
   plugins: [
-    react(), 
-    mode === "development" && componentTagger(),
-  ].filter(Boolean),
+    react({
+      // Configuração básica e estável
+      jsxRuntime: 'automatic'
+    }),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
-    
+  },
+  define: {
+    'process.env': {},
+    'global': 'globalThis'
+  },
+  optimizeDeps: {
+    include: [
+      'react', 
+      'react-dom', 
+      '@heroui/react',
+      'lucide-react'
+    ],
+    exclude: ['@vite/client', '@vite/env']
   },
   build: {
     outDir: "dist",
@@ -24,10 +37,10 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: {
-          community: ['./src/contexts/OnlineUsersContext', './src/components/ChatRoom'],
           vendor: ["react", "react-dom"],
-          ui: ["@heroui/react", "lucide-react"],
-          utils: ["date-fns", "uuid"]
+          ui: ["@heroui/react"],
+          icons: ["lucide-react"],
+          utils: ["framer-motion"]
         }
       }
     },
@@ -37,4 +50,4 @@ export default defineConfig(({ mode }) => ({
     port: 3000,
     host: true
   }
-}));
+});
