@@ -4,11 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta http-equiv="Content-Security-Policy" 
-      content="default-src 'self'; 
-               connect-src 'self' https://nzpcdqsrncldrtmqgegi.supabase.co; 
-               script-src 'self' 'unsafe-inline'; 
-               style-src 'self' 'unsafe-inline'; 
-               img-src 'self' data: https: blob:;">
+          content="default-src 'self';
+                   connect-src 'self' https://nzpcdqsrncldrtmqgegi.supabase.co https://*.supabase.co wss://nzpcdqsrncldrtmqgegi.supabase.co;
+                   script-src 'self' 'unsafe-inline' 'unsafe-eval';
+                   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+                   font-src 'self' https://fonts.gstatic.com;
+                   img-src 'self' data: https: blob:;
+                   media-src 'self';
+                   object-src 'none';
+                   base-uri 'self';
+                   form-action 'self'" />
+    
     <!-- Título e descrição -->
     <title>Essentia - Seu Controle Nutricional Inteligente</title>
     <meta name="description" content="Controle suas refeições, hidratação e conquiste medalhas por seus objetivos! Acompanhamento nutricional completo e gamificado." />
