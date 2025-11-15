@@ -4,7 +4,7 @@ import App from "./App.tsx";
 import "./index.css";
 import { registerDesignColors } from "./lib/registerColors";
 import { registerServiceWorker } from '@/utils/serviceWorkerRegistration';
-
+import { OnlineUsersProvider } from '@/contexts/OnlineUsersContext';
 
 // Registrar service worker na inicialização
 registerServiceWorker().then(success => {
@@ -27,7 +27,9 @@ if (typeof navigator !== 'undefined' && !navigator.userAgent) {
 registerDesignColors();
 
 createRoot(document.getElementById("root")!).render(
+  <OnlineUsersProvider>
   <NextUIProvider locale="pt-BR">
     <App />
   </NextUIProvider>
+  </OnlineUsersProvider>
 );

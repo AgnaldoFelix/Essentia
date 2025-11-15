@@ -43,6 +43,9 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { NotificationPermissionBanner } from "@/components/NotificationPermissionBanner";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { PWAInstallButton } from "@/components/PWAInstallButton";
+import { ChatRoom } from '@/components/ChatRoom';
+import { MessageCircle } from 'lucide-react';
+import { useOnlineUsers } from "@/contexts/OnlineUsersContext";
 interface DashboardStatsProProps {
   currentProtein: number;
   currentCalories: number;
@@ -751,6 +754,23 @@ export const DashboardStatsPro = ({
               )}
             </Card>
           </Tab>
+
+<Tab
+  key="comunidade"
+  title={
+    <div className="flex items-center gap-2">
+      <MessageCircle className="h-4 w-4" />
+      <span>Comunidade</span>
+{useOnlineUsers().onlineUsers.filter(user => user.isOnline && user.profileEnabled).length > 0 && (
+  <Chip color="primary" variant="flat" size="sm">
+    {useOnlineUsers().onlineUsers.filter(user => user.isOnline && user.profileEnabled).length}
+  </Chip>
+)}
+    </div>
+  }
+>
+  <ChatRoom />
+</Tab>
 
           <Tab
             key="refeicoes"

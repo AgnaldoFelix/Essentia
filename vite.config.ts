@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: {
+          community: ['./src/contexts/OnlineUsersContext', './src/components/ChatRoom'],
           vendor: ["react", "react-dom"],
           ui: ["@heroui/react", "lucide-react"],
           utils: ["date-fns", "uuid"]
