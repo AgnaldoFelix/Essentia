@@ -6,10 +6,6 @@ export default defineConfig({
   server: {
     host: "::",
     port: 3000,
-    headers: {
-      // CSP para desenvolvimento
-      "Content-Security-Policy": "default-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:3000 https://nzpcdqsrncldrtmqgegi.supabase.co https://*.supabase.co wss://nzpcdqsrncldrtmqgegi.supabase.co; connect-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:3000 https://nzpcdqsrncldrtmqgegi.supabase.co https://*.supabase.co wss://nzpcdqsrncldrtmqgegi.supabase.co;"
-    }
   },
   plugins: [
     react({
