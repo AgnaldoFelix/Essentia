@@ -40,7 +40,7 @@ export const OnlineUsersContext = createContext<OnlineUsersContextType | undefin
 
 // Serviço de sincronização CORRIGIDO
 class SyncService {
-  private serverUrl = 'http://localhost:3001';
+  private serverUrl = 'https://back-dnutri-community.onrender.com/';
   private isOnline = false;
 
   async checkServerStatus(): Promise<boolean> {
