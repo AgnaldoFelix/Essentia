@@ -1,4 +1,3 @@
-// components/ChatRoom.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Card,
@@ -32,8 +31,10 @@ import {
   Zap,
   Heart
 } from "lucide-react";
-import { useOnlineUsers } from '@/contexts/OnlineUsersContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useOnlineUsers } from '@/hooks/useOnlineUsers';
+import { useApiHealth } from '@/hooks/useApiHealth';
+
 
 export const ChatRoom = () => {
   const {
@@ -43,9 +44,13 @@ export const ChatRoom = () => {
     toggleProfile,
     addMessage,
     chatMessages,
-    updateCurrentUser, // Adicionar esta função
-    initializeUser, // Adicionar esta função
+    updateCurrentUser,
+    initializeUser,
+    syncEnabled,
+    syncStatus,
+    syncLabel,
   } = useOnlineUsers();
+   const { isOnline, isLoading, apiUrl } = useApiHealth();
 
   const [newMessage, setNewMessage] = useState('');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -54,6 +59,50 @@ export const ChatRoom = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [isMobile, setIsMobile] = useState(false);
 
+    const ApiStatusIndicator = () => (
+    <Tooltip content={`API: ${apiUrl} - ${isOnline ? 'Online' : 'Offline'}`}>
+      <Chip
+        color={isOnline ? "success" : "danger"}
+        variant="flat"
+        size="sm"
+        className="border-0"
+      >
+        <div className="flex items-center gap-1">
+          {isOnline ? 
+            <Wifi className="h-3 w-3" /> : 
+            <WifiOff className="h-3 w-3" />
+          }
+          API {isOnline ? 'Online' : 'Offline'}
+        </div>
+      </Chip>
+    </Tooltip>
+  );
+
+  const SyncIndicator = () => (
+    <Tooltip content={syncLabel}>
+      <Chip
+        color={
+          syncStatus === 'full' ? "success" : 
+          syncStatus === 'local' ? "warning" : "danger"
+        }
+        variant="flat"
+        size="sm"
+        className="border-0"
+      >
+        <div className="flex items-center gap-1">
+          {syncStatus === 'full' ? 
+            <Wifi className="h-3 w-3" /> : 
+            syncStatus === 'local' ?
+            <Users className="h-3 w-3" /> :
+            <WifiOff className="h-3 w-3" />
+          }
+          {syncStatus === 'full' ? 'Multi-Origem' : 
+           syncStatus === 'local' ? 'Apenas Local' : 'Offline'}
+        </div>
+      </Chip>
+    </Tooltip>
+  );
+
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
@@ -61,13 +110,23 @@ export const ChatRoom = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // 🔄 SCROLL AUTOMÁTICO PARA NOVAS MENSAGENS
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
   };
 
   useEffect(() => {
     scrollToBottom();
   }, [chatMessages]);
+
+  // 🔄 ATUALIZAR NOME DO USUÁRIO QUANDO currentUser MUDAR
+  useEffect(() => {
+    if (currentUser?.name) {
+      setUserName(currentUser.name);
+    }
+  }, [currentUser]);
 
   const handleSendMessage = () => {
     if (!newMessage.trim() || !currentUser) return;
@@ -75,7 +134,7 @@ export const ChatRoom = () => {
     const message = {
       userId: currentUser.id,
       userName: currentUser.name,
-      userAvatar: currentUser.avatar,
+      userAvatar: currentUser.avatar, // 🔥 Usar avatar atual do usuário
       message: newMessage.trim(),
       timestamp: new Date(),
       type: 'text' as const,
@@ -93,21 +152,23 @@ export const ChatRoom = () => {
   };
 
   const handleSaveProfile = async () => {
-    if (currentUser && userName.trim()) {
-      // Atualizar usuário localmente
-      updateCurrentUser({
-        name: userName,
-        profileEnabled: true,
-        isOnline: true,
-      });
-      
-      // Atualizar no Supabase
-      await initializeUser({
-        id: currentUser.id,
-        username: userName,
-        age: 25, // idade padrão, pode ser ajustada
-        avatar: currentUser.avatar,
-      });
+    if (userName.trim()) {
+      // Se já existe um usuário atual, atualizar
+      if (currentUser) {
+        updateCurrentUser({
+          name: userName,
+          profileEnabled: true,
+          isOnline: true,
+        });
+      } else {
+        // Se não existe, criar novo usuário
+        await initializeUser({
+          id: `user_${Date.now()}`,
+          username: userName,
+          age: 25,
+          avatar: '/Essentia.png', // Avatar padrão
+        });
+      }
       
       setIsEditingProfile(false);
     }
@@ -122,34 +183,47 @@ export const ChatRoom = () => {
 
   const onlineCount = onlineUsers.filter(user => user.isOnline && user.profileEnabled).length;
 
-  // Animações
-  const messageVariants = {
-    hidden: { opacity: 0, y: 20, scale: 0.95 },
-    visible: { 
-      opacity: 1, 
-      y: 0, 
-      scale: 1,
-      transition: {
-        type: "spring",
-        stiffness: 500,
-        damping: 30
-      }
-    },
-    exit: { opacity: 0, y: -20, scale: 0.95 }
-  };
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
+  // 🔥 COMPONENTE DE AVATAR SEGURO
+  const SafeAvatar = ({ src, name, className = "" }: { src: string; name: string; className?: string }) => {
+    // Verificar se o src é um SVG válido ou uma URL
+    const isSvg = src?.startsWith('<svg') || src?.includes('data:image/svg+xml');
+    const isValidUrl = src?.startsWith('http') || src?.startsWith('/') || src?.startsWith('data:image');
+    
+    if (!isValidUrl && !isSvg) {
+      // Fallback para avatar com iniciais
+      return (
+        <Avatar
+          name={name}
+          className={className}
+          getInitials={(name) => name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
+        />
+      );
     }
+
+    if (isSvg) {
+      // Renderizar SVG inline
+      return (
+        <div className={`flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 rounded-full ${className}`}>
+          <div 
+            className="w-full h-full rounded-full flex items-center justify-center"
+            dangerouslySetInnerHTML={{ __html: src }}
+          />
+        </div>
+      );
+    }
+
+    // URL normal de imagem
+    return (
+      <Avatar
+        src={src}
+        name={name}
+        className={className}
+      />
+    );
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 animate-gradient-x">
+    <div className="flex flex-col h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
       {/* Header */}
       <Card className="m-4 mb-0 shadow-xl rounded-3xl border border-white/20 backdrop-blur-sm">
         <CardHeader className="flex justify-between items-center bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white rounded-t-3xl">
@@ -165,7 +239,9 @@ export const ChatRoom = () => {
             <div className="relative">
               <MessageCircle className="h-7 w-7" />
               <motion.div
-                className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full"
+                className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${
+                  syncEnabled ? 'bg-green-400' : 'bg-yellow-400'
+                }`}
                 animate={{ scale: [1, 1.2, 1] }}
                 transition={{ duration: 2, repeat: Infinity }}
               />
@@ -174,6 +250,8 @@ export const ChatRoom = () => {
               <h2 className="text-xl font-bold bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
                 Comunidade Essentia
               </h2>
+              <SyncIndicator />
+              <ApiStatusIndicator />
               <p className="text-blue-100 text-sm flex items-center gap-1">
                 <Wifi className="h-3 w-3" />
                 {onlineCount} {onlineCount === 1 ? 'pessoa online' : 'pessoas online'}
@@ -181,7 +259,7 @@ export const ChatRoom = () => {
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <Tooltip content={isProfileEnabled ? "Você está online" : "Você está offline"}>
               <Chip
                 color={isProfileEnabled ? "success" : "default"}
@@ -215,77 +293,7 @@ export const ChatRoom = () => {
       </Card>
 
       <div className="flex flex-1 p-4 gap-4 overflow-hidden">
-        {/* Lista de Usuários Online - Drawer para mobile */}
-        <Drawer 
-          isOpen={isOpen} 
-          onClose={onClose} 
-          placement="left"
-          size="sm"
-        >
-          <DrawerContent className="bg-gradient-to-b from-slate-50 to-blue-50">
-            <DrawerHeader className="flex items-center gap-3 border-b border-white/20">
-              <Users className="h-5 w-5 text-purple-600" />
-              <h3 className="font-semibold text-lg">Usuários Online</h3>
-              <Badge color="primary" variant="faded" className="ml-auto">
-                {onlineCount}
-              </Badge>
-              <Button isIconOnly variant="light" onPress={onClose} size="sm">
-                <X className="h-4 w-4" />
-              </Button>
-            </DrawerHeader>
-            <DrawerBody className="p-4">
-              <div className="space-y-3">
-                <AnimatePresence>
-                  {onlineUsers
-                    .filter(user => user.isOnline && user.profileEnabled)
-                    .map((user, index) => (
-                      <motion.div
-                        key={user.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        className="flex items-center gap-3 p-3 rounded-2xl bg-white/80 backdrop-blur-sm border border-white/20 hover:bg-white transition-all duration-300 shadow-sm hover:shadow-md"
-                      >
-                        <div className="relative">
-                          <Avatar
-                            src={user.avatar}
-                            name={user.name}
-                            className="w-12 h-12 border-2 border-green-400 shadow-lg"
-                          />
-                          <motion.div
-                            className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"
-                            animate={{ scale: [1, 1.2, 1] }}
-                            transition={{ duration: 2, repeat: Infinity }}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm truncate text-gray-800">{user.name}</p>
-                          <p className="text-xs text-green-600 font-medium flex items-center gap-1">
-                            <Zap className="h-3 w-3" />
-                            Online agora
-                          </p>
-                        </div>
-                      </motion.div>
-                    ))}
-                </AnimatePresence>
-                
-                {onlineUsers.filter(user => user.isOnline && user.profileEnabled).length === 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-center py-8 text-gray-500"
-                  >
-                    <Users className="h-16 w-16 mx-auto mb-4 opacity-30" />
-                    <p className="font-medium mb-2">Nenhum usuário online</p>
-                    <p className="text-sm">Ative seu perfil para aparecer aqui!</p>
-                  </motion.div>
-                )}
-              </div>
-            </DrawerBody>
-          </DrawerContent>
-        </Drawer>
-
-        {/* Lista de Usuários Online - Desktop */}
+        {/* Lista de Usuários Online */}
         {!isMobile && (
           <Card className="w-80 flex-shrink-0 shadow-xl rounded-3xl border border-white/20 backdrop-blur-sm">
             <CardHeader className="flex items-center gap-3 border-b border-white/20 bg-gradient-to-r from-white to-blue-50 rounded-t-3xl">
@@ -310,7 +318,8 @@ export const ChatRoom = () => {
                           className="flex items-center gap-3 p-3 rounded-2xl bg-white/80 backdrop-blur-sm border border-white/20 hover:bg-white transition-all duration-300 shadow-sm hover:shadow-md"
                         >
                           <div className="relative">
-                            <Avatar
+                            {/* 🔥 AVATAR CORRETO - Usando SafeAvatar */}
+                            <SafeAvatar
                               src={user.avatar}
                               name={user.name}
                               className="w-12 h-12 border-2 border-green-400 shadow-lg"
@@ -332,7 +341,7 @@ export const ChatRoom = () => {
                       ))}
                   </AnimatePresence>
                   
-                  {onlineUsers.filter(user => user.isOnline && user.profileEnabled).length === 0 && (
+                  {onlineCount === 0 && (
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -354,21 +363,13 @@ export const ChatRoom = () => {
           <CardBody className="flex-1 flex flex-col p-0 bg-gradient-to-b from-white to-purple-50/50 rounded-3xl">
             {/* Mensagens */}
             <ScrollShadow className="flex-1 p-6">
-              <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                className="space-y-4"
-              >
-                <AnimatePresence mode="popLayout">
+              <motion.div className="space-y-4">
+                <AnimatePresence>
                   {chatMessages.map((message) => (
                     <motion.div
                       key={message.id}
-                      layout
-                      variants={messageVariants}
-                      initial="hidden"
-                      animate="visible"
-                      exit="exit"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
                       className={`flex gap-3 ${
                         message.userId === currentUser?.id ? 'flex-row-reverse' : 'flex-row'
                       } ${
@@ -377,7 +378,8 @@ export const ChatRoom = () => {
                     >
                       {message.type !== 'system' && (
                         <Tooltip content={message.userName}>
-                          <Avatar
+                          {/* 🔥 AVATAR CORRETO NAS MENSAGENS */}
+                          <SafeAvatar
                             src={message.userAvatar}
                             name={message.userName}
                             className="w-10 h-10 flex-shrink-0 border-2 border-white shadow-lg"
@@ -394,8 +396,6 @@ export const ChatRoom = () => {
                         } rounded-3xl p-4 ${
                           message.type === 'system' ? 'mx-auto text-xs px-6 py-3' : ''
                         } backdrop-blur-sm`}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
                       >
                         {message.type !== 'system' && message.userId !== currentUser?.id && (
                           <p className="font-semibold text-sm mb-2 flex items-center gap-2">
@@ -411,17 +411,9 @@ export const ChatRoom = () => {
                               : message.type === 'system'
                               ? 'text-amber-600'
                               : 'text-gray-500'
-                          } flex items-center gap-1`}
+                          }`}
                         >
                           {formatTime(message.timestamp)}
-                          {message.userId === currentUser?.id && (
-                            <motion.span
-                              animate={{ scale: [1, 1.2, 1] }}
-                              transition={{ duration: 1.5, repeat: Infinity }}
-                            >
-                              ✓
-                            </motion.span>
-                          )}
                         </p>
                       </motion.div>
                     </motion.div>
@@ -434,11 +426,7 @@ export const ChatRoom = () => {
             {/* Input de Mensagem */}
             <div className="border-t border-white/20 p-6 bg-white/80 backdrop-blur-sm rounded-b-3xl">
               {isProfileEnabled ? (
-                <motion.div 
-                  className="flex gap-3"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
+                <div className="flex gap-3">
                   <Textarea
                     placeholder="Digite sua mensagem..."
                     value={newMessage}
@@ -452,29 +440,23 @@ export const ChatRoom = () => {
                       inputWrapper: "bg-white border-2 border-gray-200 rounded-2xl hover:border-purple-300 focus-within:border-purple-500 shadow-sm"
                     }}
                   />
-                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                    <Button
-                      color="primary"
-                      isIconOnly
-                      size="lg"
-                      onPress={handleSendMessage}
-                      isDisabled={!newMessage.trim()}
-                      className="rounded-2xl shadow-lg bg-gradient-to-r from-blue-500 to-purple-500 border-0 min-w-12 h-12"
-                    >
-                      <Send className="h-5 w-5" />
-                    </Button>
-                  </motion.div>
-                </motion.div>
+                  <Button
+                    color="primary"
+                    isIconOnly
+                    size="lg"
+                    onPress={handleSendMessage}
+                    isDisabled={!newMessage.trim()}
+                    className="rounded-2xl shadow-lg bg-gradient-to-r from-blue-500 to-purple-500 border-0 min-w-12 h-12"
+                  >
+                    <Send className="h-5 w-5" />
+                  </Button>
+                </div>
               ) : (
-                <motion.div 
-                  className="text-center py-6 text-gray-500"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
+                <div className="text-center py-6 text-gray-500">
                   <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-30" />
                   <p className="font-medium mb-1">Ative seu perfil para participar do chat</p>
                   <p className="text-sm">Compartilhe suas conquistas e motive outros!</p>
-                </motion.div>
+                </div>
               )}
             </div>
           </CardBody>
@@ -503,8 +485,9 @@ export const ChatRoom = () => {
                 </CardHeader>
                 <CardBody className="space-y-4 p-6">
                   <div className="flex items-center gap-4">
-                    <Avatar
-                      src={currentUser?.avatar}
+                    {/* 🔥 AVATAR ATUAL DO USUÁRIO */}
+                    <SafeAvatar
+                      src={currentUser?.avatar || '/Essentia.png'}
                       name={userName}
                       className="w-16 h-16 border-2 border-purple-200 shadow-lg"
                     />
@@ -514,24 +497,8 @@ export const ChatRoom = () => {
                         value={userName}
                         onValueChange={setUserName}
                         placeholder="Como quer ser chamado?"
-                        classNames={{
-                          inputWrapper: "bg-white border-2 border-gray-200 rounded-xl"
-                        }}
                       />
                     </div>
-                  </div>
-                  
-                  <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-2xl p-4">
-                    <p className="text-amber-800 text-sm font-medium flex items-center gap-2 mb-1">
-                      <Zap className="h-4 w-4" />
-                      Perfil {isProfileEnabled ? 'Ativo' : 'Inativo'}
-                    </p>
-                    <p className="text-amber-700 text-xs">
-                      {isProfileEnabled 
-                        ? 'Seu perfil está visível para outros usuários na comunidade'
-                        : 'Ative para aparecer na lista de usuários online e participar do chat'
-                      }
-                    </p>
                   </div>
                 </CardBody>
                 <div className="flex gap-3 p-6 border-t border-white/20">
@@ -556,6 +523,53 @@ export const ChatRoom = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Drawer Mobile */}
+      <Drawer 
+        isOpen={isOpen} 
+        onClose={onClose} 
+        placement="left"
+        size="sm"
+      >
+        <DrawerContent className="bg-gradient-to-b from-slate-50 to-blue-50">
+          <DrawerHeader className="flex items-center gap-3 border-b border-white/20">
+            <Users className="h-5 w-5 text-purple-600" />
+            <h3 className="font-semibold text-lg">Usuários Online</h3>
+            <Badge color="primary" variant="faded" className="ml-auto">
+              {onlineCount}
+            </Badge>
+            <Button isIconOnly variant="light" onPress={onClose} size="sm">
+              <X className="h-4 w-4" />
+            </Button>
+          </DrawerHeader>
+          <DrawerBody className="p-4">
+            <div className="space-y-3">
+              {onlineUsers
+                .filter(user => user.isOnline && user.profileEnabled)
+                .map((user) => (
+                  <div
+                    key={user.id}
+                    className="flex items-center gap-3 p-3 rounded-2xl bg-white/80 backdrop-blur-sm border border-white/20"
+                  >
+                    <div className="relative">
+                      {/* 🔥 AVATAR CORRETO NO DRAWER MOBILE */}
+                      <SafeAvatar
+                        src={user.avatar}
+                        name={user.name}
+                        className="w-12 h-12 border-2 border-green-400 shadow-lg"
+                      />
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate text-gray-800">{user.name}</p>
+                      <p className="text-xs text-green-600 font-medium">Online agora</p>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 };

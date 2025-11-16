@@ -27,7 +27,8 @@ import {
 } from 'lucide-react';
 import { UserProfile } from '@/types/gamification';
 import { AvatarCreator } from '@/components/AvatarCreator';
-import { useOnlineUsers } from '@/contexts/OnlineUsersContext'; // Importar o hook
+import { useOnlineUsers } from '@/hooks/useOnlineUsers';
+
 
 interface ProfilePageProps {
   profile: UserProfile;
