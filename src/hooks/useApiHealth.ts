@@ -1,10 +1,12 @@
-// hooks/useApiHealth.ts - ATUALIZADO
+// hooks/useApiHealth.ts - CORRIGIDO
 import { useState, useEffect } from 'react';
 
-// Lista de URLs possíveis para tentar conexão
+// URLs corretas - SEM barra no final
 const POSSIBLE_API_URLS = [
-  'https://back-dnutri-community.onrender.com/',
-].filter(Boolean); // Remove valores vazios
+  'https://back-dnutri-community.onrender.com',
+  'http://localhost:10000',
+  import.meta.env.VITE_API_URL_COMMUNITY,
+].filter(Boolean).map(url => url.replace(/\/$/, '')); // Remove barras finais
 
 export const useApiHealth = () => {
   const [isOnline, setIsOnline] = useState(false);
@@ -14,32 +16,37 @@ export const useApiHealth = () => {
 
   const checkSingleUrl = async (url: string): Promise<boolean> => {
     try {
-      console.log(`🔗 Tentando conectar com: ${url}`);
-      const response = await fetch(`${url}/status`, {
+      console.log(`🔗 Testando: ${url}`);
+      
+      // ✅ Timeout aumentado para 10 segundos (Render é lento)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      const response = await fetch(`${url}/health`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        // Timeout de 3 segundos
-        signal: AbortSignal.timeout(3000),
+        signal: controller.signal
       });
       
+      clearTimeout(timeoutId);
+      
       if (response.ok) {
-        console.log(`✅ Conectado com sucesso: ${url}`);
+        const data = await response.json();
+        console.log(`✅ Conectado: ${url}`, data);
         return true;
       }
       return false;
     } catch (err) {
-      console.log(`❌ Falha ao conectar com ${url}:`, err);
+      console.log(`❌ Falha em ${url}:`, err);
       return false;
     }
   };
 
   const checkApiHealth = async () => {
+    if (isLoading) return;
+    
     setIsLoading(true);
     setError('');
 
-    // Tentar cada URL possivel
     for (const url of POSSIBLE_API_URLS) {
       const success = await checkSingleUrl(url);
       if (success) {
@@ -48,22 +55,18 @@ export const useApiHealth = () => {
         setIsLoading(false);
         return;
       }
-      
-      // Pequena pausa entre tentativas
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
 
-    // Se nenhuma URL funcionou
     setIsOnline(false);
     setApiUrl(POSSIBLE_API_URLS[0] || '');
-    setError('Não foi possível conectar com nenhuma URL da API');
+    setError('Não foi possível conectar com o servidor');
     setIsLoading(false);
   };
 
   useEffect(() => {
     checkApiHealth();
     
-    // Verificar a cada 30 segundos
     const interval = setInterval(checkApiHealth, 30000);
     return () => clearInterval(interval);
   }, []);

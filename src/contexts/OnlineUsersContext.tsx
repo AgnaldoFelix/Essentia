@@ -40,35 +40,60 @@ export const OnlineUsersContext = createContext<OnlineUsersContextType | undefin
 
 // Serviço de sincronização CORRIGIDO
 class SyncService {
-  private serverUrl = 'https://back-dnutri-community.onrender.com/';
+  private serverUrl = import.meta.env.VITE_API_URL_COMMUNITY || 'https://back-dnutri-community.onrender.com';
   private isOnline = false;
 
   async checkServerStatus(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.serverUrl}/status`);
-      this.isOnline = response.ok;
-      return response.ok;
-    } catch {
-      this.isOnline = false;
-      return false;
+      console.log('🔄 Verificando status do servidor...');
+      const response = await fetch(`${this.serverUrl}/health`, {
+        signal: AbortSignal.timeout(10000)
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Servidor online:', data);
+        this.isOnline = true;
+        return true;
+      }
+    } catch (error) {
+      console.warn('❌ Servidor offline:', error);
     }
+    
+    this.isOnline = false;
+    return false;
   }
 
   async fetchOnlineUsers(): Promise<OnlineUser[]> {
-    if (!this.isOnline) return [];
+    if (!this.isOnline) {
+      console.log('📴 Modo offline - retornando array vazio');
+      return [];
+    }
     
     try {
-      const response = await fetch(`${this.serverUrl}/online-users`);
+      console.log('📥 Buscando usuários online...');
+      const response = await fetch(`${this.serverUrl}/online-users`, {
+        signal: AbortSignal.timeout(10000)
+      });
+      
       if (response.ok) {
         const users = await response.json();
-        return users.map((user: any) => ({
-          ...user,
-          lastSeen: new Date(user.lastSeen),
-        }));
+        console.log('✅ Usuários recebidos:', users.length);
+        
+        if (Array.isArray(users)) {
+          return users.map((user: any) => ({
+            ...user,
+            lastSeen: new Date(user.lastSeen || user.connectedAt || Date.now()),
+          }));
+        } else {
+          console.warn('⚠️ Resposta não é array:', users);
+          return [];
+        }
       }
     } catch (error) {
-      console.warn('❌ Não foi possível buscar usuários do servidor:', error);
+      console.warn('❌ Erro ao buscar usuários:', error);
     }
+    
     return [];
   }
 
@@ -80,29 +105,50 @@ class SyncService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(user),
+        signal: AbortSignal.timeout(10000)
       });
-      return response.ok;
+      
+      const success = response.ok;
+      if (success) {
+        console.log('✅ Usuário sincronizado:', user.name);
+      }
+      return success;
     } catch (error) {
-      console.warn('❌ Não foi possível sincronizar usuário:', error);
+      console.warn('❌ Erro ao sincronizar usuário:', error);
       return false;
     }
   }
 
   async fetchChatMessages(): Promise<ChatMessage[]> {
-    if (!this.isOnline) return [];
+    if (!this.isOnline) {
+      console.log('📴 Modo offline - mensagens vazias');
+      return [];
+    }
     
     try {
-      const response = await fetch(`${this.serverUrl}/chat-messages`);
+      console.log('📥 Buscando mensagens...');
+      const response = await fetch(`${this.serverUrl}/chat-messages`, {
+        signal: AbortSignal.timeout(10000)
+      });
+      
       if (response.ok) {
         const messages = await response.json();
-        return messages.map((msg: any) => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp),
-        }));
+        console.log('✅ Mensagens recebidas:', messages.length);
+        
+        if (Array.isArray(messages)) {
+          return messages.map((msg: any) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp || msg.serverReceived || Date.now()),
+          }));
+        } else {
+          console.warn('⚠️ Resposta não é array:', messages);
+          return [];
+        }
       }
     } catch (error) {
-      console.warn('❌ Não foi possível buscar mensagens:', error);
+      console.warn('❌ Erro ao buscar mensagens:', error);
     }
+    
     return [];
   }
 
@@ -117,10 +163,16 @@ class SyncService {
           ...messageData,
           id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
         }),
+        signal: AbortSignal.timeout(10000)
       });
-      return response.ok;
+      
+      const success = response.ok;
+      if (success) {
+        console.log('✅ Mensagem sincronizada');
+      }
+      return success;
     } catch (error) {
-      console.error('❌ ERRO ao sincronizar mensagem:', error);
+      console.error('❌ Erro ao sincronizar mensagem:', error);
       return false;
     }
   }
@@ -136,72 +188,14 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [syncEnabled, setSyncEnabled] = useState(false);
   const [serverStatus, setServerStatus] = useState<'online' | 'offline' | 'checking'>('checking');
 
-  // 🔄 ATUALIZAÇÃO EM TEMPO REAL - Polling mais eficiente
-  useEffect(() => {
-    let pollingInterval: NodeJS.Timeout;
-
-    const startPolling = async () => {
-      if (!syncEnabled) return;
-
-      pollingInterval = setInterval(async () => {
-        try {
-          // Buscar apenas mensagens do servidor
-          const serverMessages = await syncService.fetchChatMessages();
-          if (serverMessages.length > chatMessages.length) {
-            console.log('🔄 Novas mensagens recebidas:', serverMessages.length - chatMessages.length);
-            setChatMessages(serverMessages);
-          }
-
-          // Buscar usuários atualizados
-          const serverUsers = await syncService.fetchOnlineUsers();
-          setOnlineUsers(serverUsers);
-        } catch (error) {
-          console.warn('Erro no polling:', error);
-        }
-      }, 2000); // Polling a cada 2 segundos
-    };
-
-    startPolling();
-
-    return () => {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-      }
-    };
-  }, [syncEnabled, chatMessages.length]);
-
-  // 🔄 INICIALIZAÇÃO DO SISTEMA
-  useEffect(() => {
-    console.log('🚀 Iniciando sistema de chat...');
-
-    const initializeSystem = async () => {
-      // Verificar status do servidor
-      const serverOnline = await syncService.checkServerStatus();
-      setServerStatus(serverOnline ? 'online' : 'offline');
-      setSyncEnabled(serverOnline);
-      
-      if (serverOnline) {
-        console.log('✅ Servidor online - carregando dados...');
-        
-        // Carregar dados do servidor
-        const [serverUsers, serverMessages] = await Promise.all([
-          syncService.fetchOnlineUsers(),
-          syncService.fetchChatMessages()
-        ]);
-        
-        setOnlineUsers(serverUsers);
-        setChatMessages(serverMessages);
-        
-        console.log(`👥 ${serverUsers.length} usuários carregados`);
-        console.log(`💬 ${serverMessages.length} mensagens carregadas`);
-      } else {
-        console.log('⚠️ Servidor offline - modo local');
-        loadLocalData();
-      }
-    };
-
-    initializeSystem();
-  }, []);
+  // 🔄 SALVAR DADOS LOCALMENTE
+  const saveToLocalStorage = (key: string, data: any) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+      console.error(`❌ Erro ao salvar ${key}:`, error);
+    }
+  };
 
   // 🔄 CARREGAR DADOS LOCAIS
   const loadLocalData = () => {
@@ -211,9 +205,7 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
       const savedUser = localStorage.getItem('essentia_current_user');
       const savedProfile = localStorage.getItem('essentia_profile_enabled');
 
-      if (savedUsers) {
-        setOnlineUsers(JSON.parse(savedUsers));
-      }
+      if (savedUsers) setOnlineUsers(JSON.parse(savedUsers));
       if (savedMessages) {
         setChatMessages(JSON.parse(savedMessages).map((msg: any) => ({
           ...msg,
@@ -226,20 +218,39 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
           lastSeen: new Date(JSON.parse(savedUser).lastSeen),
         });
       }
-      if (savedProfile) {
-        setIsProfileEnabled(JSON.parse(savedProfile));
-      }
+      if (savedProfile) setIsProfileEnabled(JSON.parse(savedProfile));
     } catch (error) {
       console.error('❌ Erro ao carregar dados locais:', error);
     }
   };
 
-  // 🔄 SALVAR DADOS LOCALMENTE
-  const saveToLocalStorage = (key: string, data: any) => {
+  // 🔄 ADICIONAR MENSAGEM
+  const addMessage = async (messageData: Omit<ChatMessage, 'id'>) => {
     try {
-      localStorage.setItem(key, JSON.stringify(data));
+      const newMessage: ChatMessage = {
+        ...messageData,
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      };
+
+      console.log('💬 Adicionando mensagem:', newMessage.message);
+
+      setChatMessages(prev => {
+        const updatedMessages = [...prev, newMessage];
+        saveToLocalStorage('essentia_chat_messages', updatedMessages);
+        return updatedMessages;
+      });
+
+      if (syncEnabled) {
+        syncService.syncMessage(messageData)
+          .then(success => {
+            if (success) console.log('✅ Mensagem sincronizada com servidor');
+          })
+          .catch(error => {
+            console.error('❌ Erro ao sincronizar mensagem:', error);
+          });
+      }
     } catch (error) {
-      console.error(`❌ Erro ao salvar ${key} no localStorage:`, error);
+      console.error('💥 ERRO ao adicionar mensagem:', error);
     }
   };
 
@@ -256,11 +267,9 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
       lastSeen: new Date(),
     };
 
-    // Atualizar estado local
     setCurrentUser(newUser);
     setIsProfileEnabled(true);
 
-    // Adicionar à lista de usuários online
     setOnlineUsers(prev => {
       const existingIndex = prev.findIndex(u => u.id === newUser.id);
       let updatedUsers;
@@ -272,21 +281,17 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
         updatedUsers = [...prev, newUser];
       }
 
-      // Sincronizar
       saveToLocalStorage('essentia_online_users', updatedUsers);
       return updatedUsers;
     });
 
-    // Sincronizar usuário com servidor
     if (syncEnabled) {
       await syncService.syncUser(newUser);
     }
 
-    // Salvar localmente
     saveToLocalStorage('essentia_current_user', newUser);
     saveToLocalStorage('essentia_profile_enabled', true);
 
-    // Mensagem de sistema
     addMessage({
       userId: 'system',
       userName: 'Sistema',
@@ -296,19 +301,19 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
       type: 'system'
     });
 
-    console.log('✅ Usuário criado e sincronizado:', newUser.name);
+    console.log('✅ Usuário criado:', newUser.name);
   };
 
+  // 🔄 ATUALIZAR PERFIL DO USUÁRIO
   const updateUserProfile = async (profile: UserProfile) => {
     if (!currentUser) return;
 
     try {
-      // 🔄 ATUALIZAR COM O AVATAR DO PERFIL
       await initializeUser({
         id: currentUser.id,
         username: profile.nickname || profile.name || 'Usuário',
         age: profile.age || 25,
-        avatar: profile.avatar, // 🔥 Usar o avatar do perfil
+        avatar: profile.avatar,
       });
 
       addMessage({
@@ -324,6 +329,7 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   };
 
+  // 🔄 TOGGLE PERFIL
   const toggleProfile = () => {
     const newState = !isProfileEnabled;
     setIsProfileEnabled(newState);
@@ -339,12 +345,10 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
 
       setCurrentUser(updatedUser);
 
-      // Atualizar lista de usuários online
       setOnlineUsers(prev => {
         let updatedUsers;
         
         if (newState) {
-          // Adicionar ou atualizar usuário
           const existingIndex = prev.findIndex(u => u.id === updatedUser.id);
           if (existingIndex >= 0) {
             updatedUsers = [...prev];
@@ -353,7 +357,6 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
             updatedUsers = [...prev, updatedUser];
           }
         } else {
-          // Remover usuário
           updatedUsers = prev.filter(u => u.id !== updatedUser.id);
         }
 
@@ -361,12 +364,10 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
         return updatedUsers;
       });
 
-      // Sincronizar usuário atual com servidor
       if (syncEnabled && newState) {
         syncService.syncUser(updatedUser);
       }
 
-      // Mensagem de sistema
       addMessage({
         userId: 'system',
         userName: 'Sistema',
@@ -378,12 +379,12 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   };
 
+  // 🔄 ATUALIZAR USUÁRIO ATUAL
   const updateCurrentUser = (userData: Partial<OnlineUser>) => {
     if (currentUser) {
       const updatedUser = { ...currentUser, ...userData };
       setCurrentUser(updatedUser);
       
-      // Atualizar na lista de usuários online
       setOnlineUsers(prev => {
         const updatedUsers = prev.map(user => 
           user.id === updatedUser.id ? updatedUser : user
@@ -392,47 +393,79 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
         return updatedUsers;
       });
 
-      // Sincronizar com servidor
       if (syncEnabled) {
         syncService.syncUser(updatedUser);
       }
     }
   };
 
-  // 🔄 ADICIONAR MENSAGEM - CORRIGIDO PARA ATUALIZAÇÃO IMEDIATA
-  const addMessage = async (messageData: Omit<ChatMessage, 'id'>) => {
-    try {
-      const newMessage: ChatMessage = {
-        ...messageData,
-        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      };
+  // 🔄 POLLING SIMPLIFICADO E CONFIÁVEL
+  useEffect(() => {
+    if (!syncEnabled) return;
 
-      console.log('💬 Adicionando mensagem:', newMessage.message);
+    console.log('🔄 Iniciando polling...');
+    let isMounted = true;
 
-      // 🔥 ATUALIZAÇÃO IMEDIATA DO ESTADO
-      setChatMessages(prev => {
-        const updatedMessages = [...prev, newMessage];
-        saveToLocalStorage('essentia_chat_messages', updatedMessages);
-        return updatedMessages;
-      });
+    const pollServer = async () => {
+      if (!isMounted) return;
 
-      // 🔄 SINCRONIZAR COM SERVIDOR (NÃO-BLOQUEANTE)
-      if (syncEnabled) {
-        syncService.syncMessage(messageData)
-          .then(success => {
-            if (success) {
-              console.log('✅ Mensagem sincronizada com servidor');
-            }
-          })
-          .catch(error => {
-            console.error('❌ Erro ao sincronizar mensagem:', error);
-          });
+      try {
+        const [serverUsers, serverMessages] = await Promise.all([
+          syncService.fetchOnlineUsers(),
+          syncService.fetchChatMessages()
+        ]);
+
+        if (isMounted) {
+          setOnlineUsers(prev => 
+            JSON.stringify(prev) !== JSON.stringify(serverUsers) ? serverUsers : prev
+          );
+          
+          setChatMessages(prev => 
+            JSON.stringify(prev) !== JSON.stringify(serverMessages) ? serverMessages : prev
+          );
+        }
+      } catch (error) {
+        console.warn('⚠️ Erro no polling:', error);
       }
+    };
 
-    } catch (error) {
-      console.error('💥 ERRO ao adicionar mensagem:', error);
-    }
-  };
+    const interval = setInterval(pollServer, 5000);
+    pollServer();
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      console.log('🛑 Polling parado');
+    };
+  }, [syncEnabled]);
+
+  // 🔄 INICIALIZAÇÃO DO SISTEMA
+  useEffect(() => {
+    console.log('🚀 Inicializando sistema...');
+
+    const initializeSystem = async () => {
+      const serverOnline = await syncService.checkServerStatus();
+      setServerStatus(serverOnline ? 'online' : 'offline');
+      setSyncEnabled(serverOnline);
+      
+      if (serverOnline) {
+        console.log('✅ Servidor online - sincronizando...');
+        
+        const [serverUsers, serverMessages] = await Promise.all([
+          syncService.fetchOnlineUsers(),
+          syncService.fetchChatMessages()
+        ]);
+        
+        setOnlineUsers(serverUsers);
+        setChatMessages(serverMessages);
+      } else {
+        console.log('📴 Servidor offline - modo local');
+        loadLocalData();
+      }
+    };
+
+    initializeSystem();
+  }, []);
 
   // 🔄 DETERMINAR STATUS DA SINCRONIZAÇÃO
   const getSyncStatus = () => {
@@ -468,4 +501,13 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
       {children}
     </OnlineUsersContext.Provider>
   );
+};
+
+// Hook personalizado para usar o contexto
+export const useOnlineUsers = () => {
+  const context = useContext(OnlineUsersContext);
+  if (context === undefined) {
+    throw new Error('useOnlineUsers deve ser usado dentro de um OnlineUsersProvider');
+  }
+  return context;
 };
