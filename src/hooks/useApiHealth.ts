@@ -3,12 +3,7 @@ import { useState, useEffect } from 'react';
 
 // Lista de URLs possíveis para tentar conexão
 const POSSIBLE_API_URLS = [
-  import.meta.env.VITE_API_URL, // URL configurada no .env
-  'http://localhost:3001',
-  'http://127.0.0.1:8000',
-  'http://192.168.1.100:8000',
-  'http://192.168.0.2:8000',
-  'http://172.17.64.1:8000',
+  'https://back-dnutri-community.onrender.com/',
 ].filter(Boolean); // Remove valores vazios
 
 export const useApiHealth = () => {
