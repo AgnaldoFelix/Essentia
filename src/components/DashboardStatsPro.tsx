@@ -45,7 +45,8 @@ import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { PWAInstallButton } from "@/components/PWAInstallButton";
 import { ChatRoom } from '@/components/ChatRoom';
 import { MessageCircle } from 'lucide-react';
-import { useOnlineUsers } from "@/contexts/OnlineUsersContext";
+import { useOnlineUsers } from "@/hooks/useOnlineUsers";
+
 interface DashboardStatsProProps {
   currentProtein: number;
   currentCalories: number;

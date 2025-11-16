@@ -1,7 +1,5 @@
-// contexts/OnlineUsersContext.tsx
 import { UserProfile } from '@/types/gamification';
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '@/lib/supabase';
 
 export interface OnlineUser {
   id: string;
@@ -32,134 +30,292 @@ interface OnlineUsersContextType {
   updateUserProfile: (profile: UserProfile) => Promise<void>;
   initializeUser: (userData: { id: string; username: string; age: number; avatar?: string }) => Promise<void>;
   updateCurrentUser: (userData: Partial<OnlineUser>) => void;
+  syncEnabled: boolean;
+  syncStatus: 'full' | 'local' | 'offline';
+  syncLabel: string;
+  serverStatus: 'online' | 'offline' | 'checking';
 }
 
 export const OnlineUsersContext = createContext<OnlineUsersContextType | undefined>(undefined);
+
+// Serviço de sincronização CORRIGIDO
+class SyncService {
+  private serverUrl = 'http://localhost:3001';
+  private isOnline = false;
+
+  async checkServerStatus(): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.serverUrl}/status`);
+      this.isOnline = response.ok;
+      return response.ok;
+    } catch {
+      this.isOnline = false;
+      return false;
+    }
+  }
+
+  async fetchOnlineUsers(): Promise<OnlineUser[]> {
+    if (!this.isOnline) return [];
+    
+    try {
+      const response = await fetch(`${this.serverUrl}/online-users`);
+      if (response.ok) {
+        const users = await response.json();
+        return users.map((user: any) => ({
+          ...user,
+          lastSeen: new Date(user.lastSeen),
+        }));
+      }
+    } catch (error) {
+      console.warn('❌ Não foi possível buscar usuários do servidor:', error);
+    }
+    return [];
+  }
+
+  async syncUser(user: OnlineUser): Promise<boolean> {
+    if (!this.isOnline) return false;
+    
+    try {
+      const response = await fetch(`${this.serverUrl}/online-users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user),
+      });
+      return response.ok;
+    } catch (error) {
+      console.warn('❌ Não foi possível sincronizar usuário:', error);
+      return false;
+    }
+  }
+
+  async fetchChatMessages(): Promise<ChatMessage[]> {
+    if (!this.isOnline) return [];
+    
+    try {
+      const response = await fetch(`${this.serverUrl}/chat-messages`);
+      if (response.ok) {
+        const messages = await response.json();
+        return messages.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp),
+        }));
+      }
+    } catch (error) {
+      console.warn('❌ Não foi possível buscar mensagens:', error);
+    }
+    return [];
+  }
+
+  async syncMessage(messageData: Omit<ChatMessage, 'id'>): Promise<boolean> {
+    if (!this.isOnline) return false;
+    
+    try {
+      const response = await fetch(`${this.serverUrl}/chat-messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...messageData,
+          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        }),
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('❌ ERRO ao sincronizar mensagem:', error);
+      return false;
+    }
+  }
+}
+
+const syncService = new SyncService();
 
 export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [currentUser, setCurrentUser] = useState<OnlineUser | null>(null);
   const [isProfileEnabled, setIsProfileEnabled] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [syncEnabled, setSyncEnabled] = useState(false);
+  const [serverStatus, setServerStatus] = useState<'online' | 'offline' | 'checking'>('checking');
 
-  // Carregar dados iniciais
+  // 🔄 ATUALIZAÇÃO EM TEMPO REAL - Polling mais eficiente
   useEffect(() => {
-    const loadInitialData = () => {
-      try {
-        const savedUser = localStorage.getItem('essentia_current_user');
-        const savedProfileEnabled = localStorage.getItem('essentia_profile_enabled');
-        const savedMessages = localStorage.getItem('essentia_chat_messages');
+    let pollingInterval: NodeJS.Timeout;
 
-        if (savedUser) {
-          const userData = JSON.parse(savedUser);
-          setCurrentUser({
-            ...userData,
-            lastSeen: new Date(userData.lastSeen),
-          });
-        }
+    const startPolling = async () => {
+      if (!syncEnabled) return;
 
-        if (savedProfileEnabled) {
-          setIsProfileEnabled(JSON.parse(savedProfileEnabled));
-        }
+      pollingInterval = setInterval(async () => {
+        try {
+          // Buscar apenas mensagens do servidor
+          const serverMessages = await syncService.fetchChatMessages();
+          if (serverMessages.length > chatMessages.length) {
+            console.log('🔄 Novas mensagens recebidas:', serverMessages.length - chatMessages.length);
+            setChatMessages(serverMessages);
+          }
 
-        if (savedMessages) {
-          const messages = JSON.parse(savedMessages).map((msg: any) => ({
-            ...msg,
-            timestamp: new Date(msg.timestamp),
-          }));
-          setChatMessages(messages);
+          // Buscar usuários atualizados
+          const serverUsers = await syncService.fetchOnlineUsers();
+          setOnlineUsers(serverUsers);
+        } catch (error) {
+          console.warn('Erro no polling:', error);
         }
-      } catch (error) {
-        console.error('Erro ao carregar dados iniciais:', error);
+      }, 2000); // Polling a cada 2 segundos
+    };
+
+    startPolling();
+
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, [syncEnabled, chatMessages.length]);
+
+  // 🔄 INICIALIZAÇÃO DO SISTEMA
+  useEffect(() => {
+    console.log('🚀 Iniciando sistema de chat...');
+
+    const initializeSystem = async () => {
+      // Verificar status do servidor
+      const serverOnline = await syncService.checkServerStatus();
+      setServerStatus(serverOnline ? 'online' : 'offline');
+      setSyncEnabled(serverOnline);
+      
+      if (serverOnline) {
+        console.log('✅ Servidor online - carregando dados...');
+        
+        // Carregar dados do servidor
+        const [serverUsers, serverMessages] = await Promise.all([
+          syncService.fetchOnlineUsers(),
+          syncService.fetchChatMessages()
+        ]);
+        
+        setOnlineUsers(serverUsers);
+        setChatMessages(serverMessages);
+        
+        console.log(`👥 ${serverUsers.length} usuários carregados`);
+        console.log(`💬 ${serverMessages.length} mensagens carregadas`);
+      } else {
+        console.log('⚠️ Servidor offline - modo local');
+        loadLocalData();
       }
     };
 
-    loadInitialData();
+    initializeSystem();
   }, []);
 
-  const initializeUser = async (userData: { id: string; username: string; age: number; avatar?: string }) => {
+  // 🔄 CARREGAR DADOS LOCAIS
+  const loadLocalData = () => {
     try {
-      console.log('Inicializando usuário:', userData);
-      
-      const { data, error } = await supabase
-        .from('users')
-        .upsert(
-          {
-            id: userData.id,
-            username: userData.username,
-            age: userData.age,
-            avatar: userData.avatar,
-            is_online: true,
-            profile_enabled: true,
-            last_seen: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-          {
-            onConflict: 'id',
-          }
-        )
-        .select()
-        .single();
+      const savedUsers = localStorage.getItem('essentia_online_users');
+      const savedMessages = localStorage.getItem('essentia_chat_messages');
+      const savedUser = localStorage.getItem('essentia_current_user');
+      const savedProfile = localStorage.getItem('essentia_profile_enabled');
 
-      if (error) {
-        console.error('Erro ao criar/atualizar usuário no Supabase:', error);
-        return;
+      if (savedUsers) {
+        setOnlineUsers(JSON.parse(savedUsers));
       }
-
-      if (data) {
-        const onlineUser: OnlineUser = {
-          id: data.id,
-          name: data.username,
-          avatar: data.avatar || '/Essentia.png',
-          isOnline: true,
-          profileEnabled: true,
-          lastSeen: new Date(data.last_seen || data.updated_at),
-        };
-
-        setCurrentUser(onlineUser);
-        setIsProfileEnabled(true);
-
-        localStorage.setItem('essentia_current_user', JSON.stringify(onlineUser));
-        localStorage.setItem('essentia_profile_enabled', 'true');
-
-        setOnlineUsers(prev => {
-          const existingUser = prev.find(u => u.id === onlineUser.id);
-          if (existingUser) {
-            return prev.map(u => u.id === onlineUser.id ? onlineUser : u);
-          }
-          return [...prev, onlineUser];
+      if (savedMessages) {
+        setChatMessages(JSON.parse(savedMessages).map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp),
+        })));
+      }
+      if (savedUser) {
+        setCurrentUser({
+          ...JSON.parse(savedUser),
+          lastSeen: new Date(JSON.parse(savedUser).lastSeen),
         });
-
-        addMessage({
-          userId: 'system',
-          userName: 'Sistema',
-          userAvatar: '/Essentia.png',
-          message: `${onlineUser.name} entrou na comunidade! 🎉`,
-          timestamp: new Date(),
-          type: 'system'
-        });
+      }
+      if (savedProfile) {
+        setIsProfileEnabled(JSON.parse(savedProfile));
       }
     } catch (error) {
-      console.error('Erro em initializeUser:', error);
+      console.error('❌ Erro ao carregar dados locais:', error);
     }
+  };
+
+  // 🔄 SALVAR DADOS LOCALMENTE
+  const saveToLocalStorage = (key: string, data: any) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+      console.error(`❌ Erro ao salvar ${key} no localStorage:`, error);
+    }
+  };
+
+  // 🔄 INICIALIZAR USUÁRIO
+  const initializeUser = async (userData: { id: string; username: string; age: number; avatar?: string }) => {
+    console.log('👤 Inicializando usuário:', userData.username);
+
+    const newUser: OnlineUser = {
+      id: userData.id,
+      name: userData.username,
+      avatar: userData.avatar || '/Essentia.png',
+      isOnline: true,
+      profileEnabled: true,
+      lastSeen: new Date(),
+    };
+
+    // Atualizar estado local
+    setCurrentUser(newUser);
+    setIsProfileEnabled(true);
+
+    // Adicionar à lista de usuários online
+    setOnlineUsers(prev => {
+      const existingIndex = prev.findIndex(u => u.id === newUser.id);
+      let updatedUsers;
+      
+      if (existingIndex >= 0) {
+        updatedUsers = [...prev];
+        updatedUsers[existingIndex] = newUser;
+      } else {
+        updatedUsers = [...prev, newUser];
+      }
+
+      // Sincronizar
+      saveToLocalStorage('essentia_online_users', updatedUsers);
+      return updatedUsers;
+    });
+
+    // Sincronizar usuário com servidor
+    if (syncEnabled) {
+      await syncService.syncUser(newUser);
+    }
+
+    // Salvar localmente
+    saveToLocalStorage('essentia_current_user', newUser);
+    saveToLocalStorage('essentia_profile_enabled', true);
+
+    // Mensagem de sistema
+    addMessage({
+      userId: 'system',
+      userName: 'Sistema',
+      userAvatar: '/Essentia.png',
+      message: `🎉 ${newUser.name} entrou na comunidade!`,
+      timestamp: new Date(),
+      type: 'system'
+    });
+
+    console.log('✅ Usuário criado e sincronizado:', newUser.name);
   };
 
   const updateUserProfile = async (profile: UserProfile) => {
     if (!currentUser) return;
 
     try {
+      // 🔄 ATUALIZAR COM O AVATAR DO PERFIL
       await initializeUser({
         id: currentUser.id,
         username: profile.nickname || profile.name || 'Usuário',
         age: profile.age || 25,
-        avatar: profile.avatar,
+        avatar: profile.avatar, // 🔥 Usar o avatar do perfil
       });
 
       addMessage({
         userId: 'system',
         userName: 'Sistema',
         userAvatar: '/Essentia.png',
-        message: `${profile.nickname || profile.name} atualizou seu perfil! ✨`,
+        message: `✨ ${profile.nickname || profile.name} atualizou seu perfil!`,
         timestamp: new Date(),
         type: 'system'
       });
@@ -168,64 +324,57 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   };
 
-  const toggleProfile = async () => {
+  const toggleProfile = () => {
     const newState = !isProfileEnabled;
     setIsProfileEnabled(newState);
-    localStorage.setItem('essentia_profile_enabled', JSON.stringify(newState));
+    saveToLocalStorage('essentia_profile_enabled', newState);
 
     if (currentUser) {
-      try {
-        const { error } = await supabase
-          .from('users')
-          .update({
-            is_online: newState,
-            profile_enabled: newState,
-            last_seen: new Date().toISOString(),
-          })
-          .eq('id', currentUser.id);
+      const updatedUser = {
+        ...currentUser,
+        isOnline: newState,
+        profileEnabled: newState,
+        lastSeen: new Date(),
+      };
 
-        if (error) {
-          console.error('Erro ao atualizar status no Supabase:', error);
-          return;
+      setCurrentUser(updatedUser);
+
+      // Atualizar lista de usuários online
+      setOnlineUsers(prev => {
+        let updatedUsers;
+        
+        if (newState) {
+          // Adicionar ou atualizar usuário
+          const existingIndex = prev.findIndex(u => u.id === updatedUser.id);
+          if (existingIndex >= 0) {
+            updatedUsers = [...prev];
+            updatedUsers[existingIndex] = updatedUser;
+          } else {
+            updatedUsers = [...prev, updatedUser];
+          }
+        } else {
+          // Remover usuário
+          updatedUsers = prev.filter(u => u.id !== updatedUser.id);
         }
 
-        const updatedUser = {
-          ...currentUser,
-          isOnline: newState,
-          profileEnabled: newState,
-          lastSeen: new Date(),
-        };
+        saveToLocalStorage('essentia_online_users', updatedUsers);
+        return updatedUsers;
+      });
 
-        setCurrentUser(updatedUser);
-        localStorage.setItem('essentia_current_user', JSON.stringify(updatedUser));
-
-        setOnlineUsers(prev => {
-          if (newState) {
-            const exists = prev.find(user => user.id === updatedUser.id);
-            if (exists) {
-              return prev.map(user => 
-                user.id === updatedUser.id ? updatedUser : user
-              );
-            } else {
-              return [...prev, updatedUser];
-            }
-          } else {
-            return prev.filter(user => user.id !== updatedUser.id);
-          }
-        });
-
-        addMessage({
-          userId: 'system',
-          userName: 'Sistema',
-          userAvatar: '/Essentia.png',
-          message: `${currentUser.name} ${newState ? 'entrou' : 'saiu'} da comunidade`,
-          timestamp: new Date(),
-          type: 'system'
-        });
-
-      } catch (error) {
-        console.error('Erro ao alternar perfil:', error);
+      // Sincronizar usuário atual com servidor
+      if (syncEnabled && newState) {
+        syncService.syncUser(updatedUser);
       }
+
+      // Mensagem de sistema
+      addMessage({
+        userId: 'system',
+        userName: 'Sistema',
+        userAvatar: '/Essentia.png',
+        message: `🔔 ${currentUser.name} ${newState ? 'entrou' : 'saiu'} da comunidade`,
+        timestamp: new Date(),
+        type: 'system'
+      });
     }
   };
 
@@ -233,50 +382,70 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (currentUser) {
       const updatedUser = { ...currentUser, ...userData };
       setCurrentUser(updatedUser);
-      localStorage.setItem('essentia_current_user', JSON.stringify(updatedUser));
-
-      setOnlineUsers(prev => 
-        prev.map(user => 
+      
+      // Atualizar na lista de usuários online
+      setOnlineUsers(prev => {
+        const updatedUsers = prev.map(user => 
           user.id === updatedUser.id ? updatedUser : user
-        )
-      );
+        );
+        saveToLocalStorage('essentia_online_users', updatedUsers);
+        return updatedUsers;
+      });
+
+      // Sincronizar com servidor
+      if (syncEnabled) {
+        syncService.syncUser(updatedUser);
+      }
     }
   };
 
+  // 🔄 ADICIONAR MENSAGEM - CORRIGIDO PARA ATUALIZAÇÃO IMEDIATA
   const addMessage = async (messageData: Omit<ChatMessage, 'id'>) => {
     try {
-      const tempId = generateMessageId();
       const newMessage: ChatMessage = {
         ...messageData,
-        id: tempId,
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       };
 
-      setChatMessages(prev => [...prev, newMessage]);
-      
-      const updatedMessages = [...chatMessages, newMessage];
-      localStorage.setItem('essentia_chat_messages', JSON.stringify(updatedMessages));
+      console.log('💬 Adicionando mensagem:', newMessage.message);
 
-      if (messageData.type === 'text' && messageData.userId !== 'system') {
-        const { error } = await supabase
-          .from('chat_messages')
-          .insert({
-            user_id: messageData.userId,
-            user_name: messageData.userName,
-            user_avatar: messageData.userAvatar,
-            message: messageData.message,
-            type: messageData.type,
-            created_at: messageData.timestamp.toISOString(),
+      // 🔥 ATUALIZAÇÃO IMEDIATA DO ESTADO
+      setChatMessages(prev => {
+        const updatedMessages = [...prev, newMessage];
+        saveToLocalStorage('essentia_chat_messages', updatedMessages);
+        return updatedMessages;
+      });
+
+      // 🔄 SINCRONIZAR COM SERVIDOR (NÃO-BLOQUEANTE)
+      if (syncEnabled) {
+        syncService.syncMessage(messageData)
+          .then(success => {
+            if (success) {
+              console.log('✅ Mensagem sincronizada com servidor');
+            }
+          })
+          .catch(error => {
+            console.error('❌ Erro ao sincronizar mensagem:', error);
           });
-
-        if (error) {
-          console.error('Erro ao salvar mensagem no Supabase:', error);
-        }
       }
 
     } catch (error) {
-      console.error('Erro ao adicionar mensagem:', error);
+      console.error('💥 ERRO ao adicionar mensagem:', error);
     }
   };
+
+  // 🔄 DETERMINAR STATUS DA SINCRONIZAÇÃO
+  const getSyncStatus = () => {
+    if (serverStatus === 'online' && syncEnabled) {
+      return { status: 'full' as const, label: 'Sincronização Multi-Origem' };
+    } else if (syncEnabled) {
+      return { status: 'local' as const, label: 'Sincronização Local' };
+    } else {
+      return { status: 'offline' as const, label: 'Offline' };
+    }
+  };
+
+  const syncStatus = getSyncStatus();
 
   const value: OnlineUsersContextType = {
     onlineUsers: onlineUsers.filter(user => user.profileEnabled && user.isOnline),
@@ -288,6 +457,10 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
     updateUserProfile,
     initializeUser,
     updateCurrentUser,
+    syncEnabled: syncStatus.status !== 'offline',
+    syncStatus: syncStatus.status,
+    syncLabel: syncStatus.label,
+    serverStatus,
   };
 
   return (
@@ -295,15 +468,4 @@ export const OnlineUsersProvider: React.FC<{ children: ReactNode }> = ({ childre
       {children}
     </OnlineUsersContext.Provider>
   );
-};
-
-// Helper functions
-const generateMessageId = () => `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-export const useOnlineUsers = () => {
-  const context = useContext(OnlineUsersContext);
-  if (context === undefined) {
-    throw new Error('useOnlineUsers must be used within an OnlineUsersProvider');
-  }
-  return context;
 };
