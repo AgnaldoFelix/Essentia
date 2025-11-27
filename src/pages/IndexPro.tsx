@@ -235,7 +235,8 @@ const IndexPro = () => {
           <div className="flex items-center gap-4">
             <div className="relative">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg">
-                <span className="text-2xl">🥗</span>
+
+                <img src="/Essentia.png" alt="Logo" className="w-12 h-12" />
               </div>
               <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-success rounded-full border-2 border-background"></div>
             </div>
