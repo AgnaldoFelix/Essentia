@@ -1,10 +1,4 @@
-# Welcome to your Lovable project
-
-## Project info
-
-**URL**: https://lovable.dev/projects/9d4f7d00-14a0-4b84-b4cd-dce8040cbbf2
-
-# Essentia — Meal Mindset Pro
+# Essentia — Seu acomphante nutricional
 
 ![Essentia — preview do projeto](./assets/essentia-screenshot.png)
 
