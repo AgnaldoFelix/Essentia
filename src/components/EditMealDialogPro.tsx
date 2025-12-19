@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Meal, FoodItem } from '@/types/nutrition';
-import { Plus, Trash2, Save, Smile, Sparkles, Bot } from 'lucide-react';
+import { Plus, Trash2, Save, Smile, Sparkles, Bot, Mic, MicOff } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
@@ -43,21 +43,341 @@ interface NutritionalData {
   calories: number;
 }
 
+interface VoiceFoodData {
+  name: string;
+  amount: string;
+  unit: 'g' | 'ml' | 'unit';
+  protein?: number;
+  calories?: number;
+}
+
 // Usar o mesmo endpoint do chat
 const NUTRITION_API = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL.replace(/\/$/, "")}/avaliar`
   : "/avaliar";
 
+// Endpoint para processar descrição de alimento
+const PARSE_FOOD_API = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL.replace(/\/$/, "")}/parse-food-description`
+  : "/parse-food-description";
+
 export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMealDialogProProps) => {
   const [editedMeal, setEditedMeal] = useState<Meal>(meal);
   const [autoCompleteLoading, setAutoCompleteLoading] = useState<string | null>(null);
   const [newFoodId, setNewFoodId] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [selectedFoodForVoice, setSelectedFoodForVoice] = useState<string | null>(null);
+  const [voiceProcessing, setVoiceProcessing] = useState(false);
+  const [isSpeechSupported, setIsSpeechSupported] = useState(false);
+  
+  const recognitionRef = useRef<any>(null);
 
   // Reset editedMeal when meal prop changes
   useEffect(() => {
     setEditedMeal(meal);
     setNewFoodId(null);
   }, [meal]);
+
+  // Verificar se o navegador suporta reconhecimento de voz
+  useEffect(() => {
+    const supported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+    setIsSpeechSupported(supported);
+    
+    if (supported) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'pt-BR';
+      recognitionRef.current.maxAlternatives = 1;
+
+      recognitionRef.current.onresult = async (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setIsListening(false);
+        await processVoiceInput(transcript);
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('Erro no reconhecimento de voz:', event.error);
+        setIsListening(false);
+        
+        let errorMessage = "Não foi possível reconhecer a fala. Tente novamente.";
+        switch(event.error) {
+          case 'no-speech':
+            errorMessage = "Nenhuma fala detectada. Tente falar mais claramente.";
+            break;
+          case 'audio-capture':
+            errorMessage = "Microfone não encontrado ou sem permissão.";
+            break;
+          case 'not-allowed':
+            errorMessage = "Permissão de microfone negada. Por favor, permita o acesso ao microfone.";
+            break;
+        }
+        
+        toast({
+          title: "Erro de microfone",
+          description: errorMessage,
+          variant: "destructive"
+        });
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+  }, []);
+
+  // Função para processar input de voz
+  const processVoiceInput = async (transcript: string) => {
+    setVoiceProcessing(true);
+    
+    try {
+      console.log('🎤 Transcrição:', transcript);
+      
+      // Enviar para IA processar a descrição do alimento
+      const response = await fetch(PARSE_FOOD_API || NUTRITION_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: transcript,
+          language: 'pt-BR'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro do servidor: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Se usar o endpoint /avaliar, a resposta vem no campo reply
+      const reply = data.reply || data;
+      
+      console.log('🤖 Resposta da IA (voz):', reply);
+      
+      let voiceData: VoiceFoodData;
+      try {
+        // Se for string JSON, parsear
+        if (typeof reply === 'string') {
+          voiceData = JSON.parse(reply);
+        } else {
+          voiceData = reply;
+        }
+      } catch (error) {
+        console.error('Erro ao parsear JSON:', error);
+        // Fallback: usar o transcript como nome com regex simples
+        voiceData = simpleVoiceParser(transcript);
+      }
+
+      // Validar dados
+      if (!voiceData.name || !voiceData.amount) {
+        voiceData = simpleVoiceParser(transcript);
+      }
+
+      // Garantir que a unidade está definida
+      if (!voiceData.unit) {
+        voiceData.unit = inferUnit(transcript);
+      }
+
+      // Criar ou atualizar alimento
+      let targetFoodId = selectedFoodForVoice;
+      if (!targetFoodId) {
+        // Criar novo alimento
+        targetFoodId = `food-${Date.now()}`;
+        const newFood: FoodItem = {
+          id: targetFoodId,
+          name: voiceData.name,
+          amount: voiceData.amount,
+          unit: voiceData.unit,
+          protein: voiceData.protein || 0,
+          calories: voiceData.calories || 0
+        };
+
+        setEditedMeal(prev => ({
+          ...prev,
+          foods: [newFood, ...prev.foods]
+        }));
+        
+        setNewFoodId(targetFoodId);
+        setSelectedFoodForVoice(targetFoodId);
+      } else {
+        // Atualizar alimento existente
+        setEditedMeal(prev => ({
+          ...prev,
+          foods: prev.foods.map(food => 
+            food.id === targetFoodId 
+              ? {
+                  ...food,
+                  name: voiceData.name,
+                  amount: voiceData.amount,
+                  unit: voiceData.unit
+                }
+              : food
+          )
+        }));
+      }
+
+      // Se já tem proteína e calorias significativas, não precisa calcular
+      if (voiceData.protein && voiceData.calories && voiceData.protein > 0 && voiceData.calories > 0) {
+        setEditedMeal(prev => ({
+          ...prev,
+          foods: prev.foods.map(food => 
+            food.id === targetFoodId 
+              ? {
+                  ...food,
+                  protein: voiceData.protein!,
+                  calories: voiceData.calories!
+                }
+              : food
+          )
+        }));
+
+        toast({
+          title: "Alimento adicionado por voz! 🎤",
+          description: `${voiceData.name} | ${voiceData.amount}${voiceData.unit} | ${voiceData.protein}g proteína | ${voiceData.calories} kcal`,
+        });
+      } else {
+        // Calcular dados nutricionais
+        await handleAutoComplete(targetFoodId!, voiceData.name, voiceData.amount, voiceData.unit);
+        
+        toast({
+          title: "Alimento processado por voz! 🎤",
+          description: `IA está calculando os valores nutricionais para ${voiceData.name}...`,
+        });
+      }
+
+    } catch (error) {
+      console.error('Erro ao processar voz:', error);
+      toast({
+        title: "Erro no processamento",
+        description: "Não foi possível processar a descrição do alimento. Tente descrever de outra forma ou digitar manualmente.",
+        variant: "destructive"
+      });
+    } finally {
+      setVoiceProcessing(false);
+      setSelectedFoodForVoice(null);
+    }
+  };
+
+  // Parser simples de voz para fallback
+  const simpleVoiceParser = (transcript: string): VoiceFoodData => {
+    const lowerTranscript = transcript.toLowerCase();
+    
+    // Padrões para quantidades
+    const numberMap: Record<string, string> = {
+      'um': '1', 'uma': '1', 'dois': '2', 'duas': '2', 'três': '3',
+      'quatro': '4', 'cinco': '5', 'seis': '6', 'sete': '7', 'oito': '8',
+      'nove': '9', 'dez': '10', 'onze': '11', 'doze': '12', 'treze': '13',
+      'quatorze': '14', 'quinze': '15', 'dezesseis': '16', 'dezessete': '17',
+      'dezoito': '18', 'dezenove': '19', 'vinte': '20',
+      'trinta': '30', 'quarenta': '40', 'cinquenta': '50',
+      'sessenta': '60', 'setenta': '70', 'oitenta': '80',
+      'noventa': '90', 'cem': '100', 'cento': '100',
+      'duzentos': '200', 'trezentos': '300', 'quatrocentos': '400',
+      'quinhentos': '500', 'seiscentos': '600', 'setecentos': '700',
+      'oitocentos': '800', 'novecentos': '900', 'mil': '1000'
+    };
+
+    // Procurar por números
+    let amount = "100";
+    let unit = inferUnit(lowerTranscript);
+    
+    // Primeiro, tentar encontrar números digitais
+    const digitMatch = lowerTranscript.match(/(\d+)\s*(g|gramas|ml|mililitros|unidades|unidade|uni|un)/);
+    if (digitMatch) {
+      amount = digitMatch[1];
+    } else {
+      // Procurar por números por extenso
+      for (const [word, num] of Object.entries(numberMap)) {
+        if (lowerTranscript.includes(word)) {
+          amount = num;
+          break;
+        }
+      }
+    }
+
+    // Remover números e unidades para extrair o nome
+    let name = lowerTranscript
+      .replace(/(\d+)\s*(g|gramas|ml|mililitros|unidades|unidade|uni|un)/g, '')
+      .replace(/um|uma|dois|duas|três|quatro|cinco|seis|sete|oito|nove|dez/gi, '')
+      .replace(/de|da|do|das|dos|gramas|grama|mililitros|mililitro|unidades|unidade/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // Se não conseguiu extrair nome, usar a descrição completa
+    if (!name) {
+      name = transcript;
+    }
+
+    // Capitalizar primeira letra
+    name = name.charAt(0).toUpperCase() + name.slice(1);
+
+    return {
+      name,
+      amount,
+      unit,
+      protein: 0,
+      calories: 0
+    };
+  };
+
+  // Inferir unidade da descrição
+  const inferUnit = (transcript: string): 'g' | 'ml' | 'unit' => {
+    const lower = transcript.toLowerCase();
+    
+    if (lower.includes('ml') || lower.includes('mililitro') || lower.includes('mililitros')) {
+      return 'ml';
+    }
+    
+    if (lower.includes('unidade') || lower.includes('unidades') || lower.includes(' un ') || 
+        lower.includes(' uni ') || lower.includes('unid') || /(\d+)\s*(uni|un)/.test(lower)) {
+      return 'unit';
+    }
+    
+    // Por padrão, assume gramas
+    return 'g';
+  };
+
+  // Iniciar reconhecimento de voz
+  const startVoiceInput = (foodId: string | null) => {
+    setSelectedFoodForVoice(foodId);
+    
+    if (!isSpeechSupported) {
+      toast({
+        title: "Navegador não suporta reconhecimento de voz",
+        description: "Use Chrome, Edge ou Safari para esta funcionalidade.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+        toast({
+          title: "🎤 Escutando...",
+          description: "Fale claramente o nome e quantidade do alimento (ex: '200 gramas de frango grelhado')",
+        });
+      } catch (error) {
+        console.error('Erro ao iniciar reconhecimento:', error);
+        setIsListening(false);
+        toast({
+          title: "Erro ao acessar microfone",
+          description: "Verifique se o microfone está conectado e as permissões estão concedidas.",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  // Parar reconhecimento de voz
+  const stopVoiceInput = () => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+  };
 
   // Função para calcular os totais baseado nos alimentos
   const calculateTotals = useCallback((foods: FoodItem[]) => {
@@ -411,23 +731,83 @@ export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMe
                     <Sparkles className="h-3 w-3" />
                     IA Disponível
                   </span>
+                  {isSpeechSupported && (
+                    <span className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1.5 rounded-full flex items-center gap-1 shadow-md">
+                      <Mic className="h-3 w-3" />
+                      Voz Disponível
+                    </span>
+                  )}
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
                   {hasEmptyFood 
                     ? "Preencha os alimentos abaixo ou adicione mais" 
                     : "Digite o alimento e quantidade, selecione a unidade e clique em 'Calcular com IA'"}
                 </p>
+                
+                {/* Controles de voz */}
+                <div className="mt-3 space-y-2">
+                  {isSpeechSupported ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => startVoiceInput(null)}
+                          disabled={isListening || voiceProcessing}
+                          className="gap-2 border-purple-500 text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg"
+                        >
+                          {isListening ? (
+                            <>
+                              <div className="h-3 w-3 bg-red-500 rounded-full animate-pulse" />
+                              Gravando...
+                            </>
+                          ) : voiceProcessing ? (
+                            <>
+                              <div className="h-3 w-3 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                              Processando...
+                            </>
+                          ) : (
+                            <>
+                              <Mic className="h-4 w-4" />
+                              Adicionar por voz
+                            </>
+                          )}
+                        </Button>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Ex: "200 gramas de frango grelhado" ou "2 ovos cozidos"
+                        </p>
+                      </div>
+                      {isListening && (
+                        <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700">
+                          <p className="text-xs text-purple-700 dark:text-purple-300 flex items-center gap-1">
+                            <div className="h-2 w-2 bg-purple-500 rounded-full animate-pulse" />
+                            Falando: {selectedFoodForVoice ? "Atualizando alimento..." : "Criando novo alimento..."}
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700">
+                      <p className="text-xs text-amber-700 dark:text-amber-300">
+                        ⚠️ Seu navegador não suporta reconhecimento de voz. Use Chrome, Edge ou Safari para esta funcionalidade.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleAddFood}
-                className="gap-2 border-[#13ED7C] text-[#13ED7C] hover:bg-[#13ED7C] hover:text-white rounded-xl transition-all duration-200 shadow-sm h-11 px-4"
-              >
-                <Plus className="h-4 w-4" /> 
-                <span className="hidden sm:inline">Adicionar</span>
-                <span className="sm:hidden">Alimento</span>
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddFood}
+                  className="gap-2 border-[#13ED7C] text-[#13ED7C] hover:bg-[#13ED7C] hover:text-white rounded-xl transition-all duration-200 shadow-sm h-11 px-4"
+                >
+                  <Plus className="h-4 w-4" /> 
+                  <span className="hidden sm:inline">Adicionar</span>
+                  <span className="sm:hidden">Alimento</span>
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -444,21 +824,50 @@ export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMe
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3">
                     {/* Nome do alimento */}
-                    <div className="lg:col-span-4">
+                    <div className="lg:col-span-3">
                       <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">
                         Nome do Alimento
                       </label>
-                      <Input
-                        id={`food-name-${food.id}`}
-                        placeholder="Ex: Frango grelhado, Arroz integral, etc."
-                        value={food.name}
-                        onChange={(e) => handleFoodChange(food.id, 'name', e.target.value)}
-                        className="border-slate-300 dark:border-slate-600 focus:border-[#1387ED] focus:ring-[#1387ED] rounded-lg bg-white dark:bg-slate-700"
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          id={`food-name-${food.id}`}
+                          placeholder="Ex: Frango grelhado"
+                          value={food.name}
+                          onChange={(e) => handleFoodChange(food.id, 'name', e.target.value)}
+                          className="flex-1 border-slate-300 dark:border-slate-600 focus:border-[#1387ED] focus:ring-[#1387ED] rounded-lg bg-white dark:bg-slate-700"
+                        />
+                        {isSpeechSupported && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              if (isListening && selectedFoodForVoice === food.id) {
+                                stopVoiceInput();
+                              } else {
+                                startVoiceInput(food.id);
+                              }
+                            }}
+                            disabled={voiceProcessing}
+                            className={`px-3 ${isListening && selectedFoodForVoice === food.id ? 'bg-red-100 border-red-300 text-red-600 hover:bg-red-200' : 'border-purple-300 text-purple-600 hover:bg-purple-50'}`}
+                          >
+                            {isListening && selectedFoodForVoice === food.id ? (
+                              <div className="flex items-center gap-1">
+                                <div className="h-2 w-2 bg-red-600 rounded-full animate-pulse" />
+                                <MicOff className="h-4 w-4" />
+                              </div>
+                            ) : voiceProcessing ? (
+                              <div className="h-4 w-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Mic className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     
                     {/* Quantidade e Unidade */}
-                    <div className="lg:col-span-3">
+                    <div className="lg:col-span-2">
                       <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">
                         Quantidade
                       </label>
@@ -483,7 +892,7 @@ export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMe
                     </div>
 
                     {/* Botão de IA */}
-                    <div className="lg:col-span-3 flex items-end">
+                    <div className="lg:col-span-2 flex items-end">
                       <Button
                         type="button"
                         variant="default"

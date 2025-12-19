@@ -42,8 +42,8 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { NotificationPermissionBanner } from "@/components/NotificationPermissionBanner";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import { PWAInstallButton } from "@/components/PWAInstallButton";
-import { ChatRoom } from '@/components/ChatRoom';
-import { MessageCircle } from 'lucide-react';
+import { ChatRoom } from "@/components/ChatRoom";
+import { MessageCircle } from "lucide-react";
 import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 
 interface DashboardStatsProProps {
@@ -70,14 +70,32 @@ export const DashboardStatsPro = ({
   onMedalEarned,
 }: DashboardStatsProProps) => {
   // SEMPRE usar as metas do plano selecionado - ESSENCIAL!
-  const proteinGoal = useMemo(() => selectedPlan?.proteinGoal || 150, [selectedPlan]);
-  const caloriesGoal = useMemo(() => selectedPlan?.caloriesGoal || 2000, [selectedPlan]);
+  const proteinGoal = useMemo(
+    () => selectedPlan?.proteinGoal || 150,
+    [selectedPlan]
+  );
+  const caloriesGoal = useMemo(
+    () => selectedPlan?.caloriesGoal || 2000,
+    [selectedPlan]
+  );
 
-  const proteinPercentage = useMemo(() => Math.min((currentProtein / proteinGoal) * 100, 100), [currentProtein, proteinGoal]);
-  const caloriesPercentage = useMemo(() => Math.min((currentCalories / caloriesGoal) * 100, 100), [currentCalories, caloriesGoal]);
+  const proteinPercentage = useMemo(
+    () => Math.min((currentProtein / proteinGoal) * 100, 100),
+    [currentProtein, proteinGoal]
+  );
+  const caloriesPercentage = useMemo(
+    () => Math.min((currentCalories / caloriesGoal) * 100, 100),
+    [currentCalories, caloriesGoal]
+  );
 
-  const proteinRemaining = useMemo(() => Math.max(proteinGoal - currentProtein, 0), [proteinGoal, currentProtein]);
-  const caloriesRemaining = useMemo(() => Math.max(caloriesGoal - currentCalories, 0), [caloriesGoal, currentCalories]);
+  const proteinRemaining = useMemo(
+    () => Math.max(proteinGoal - currentProtein, 0),
+    [proteinGoal, currentProtein]
+  );
+  const caloriesRemaining = useMemo(
+    () => Math.max(caloriesGoal - currentCalories, 0),
+    [caloriesGoal, currentCalories]
+  );
 
   const {
     isOpen: isMedalOpen,
@@ -117,14 +135,29 @@ export const DashboardStatsPro = ({
 
   // Efeito para agendar notificações quando as refeições ou o plano mudam
   useEffect(() => {
-    if (notificationsInitialized && notificationsEnabled && notificationPermission === "granted") {
+    if (
+      notificationsInitialized &&
+      notificationsEnabled &&
+      notificationPermission === "granted"
+    ) {
       scheduleMealNotifications(meals, selectedPlan?.name || "Plano Atual");
     }
-  }, [meals, selectedPlan, notificationsInitialized, notificationsEnabled, notificationPermission, scheduleMealNotifications]);
+  }, [
+    meals,
+    selectedPlan,
+    notificationsInitialized,
+    notificationsEnabled,
+    notificationPermission,
+    scheduleMealNotifications,
+  ]);
 
   // Efeito para mostrar o banner de permissão
   useEffect(() => {
-    if (notificationsInitialized && !notificationsEnabled && notificationPermission === "default") {
+    if (
+      notificationsInitialized &&
+      !notificationsEnabled &&
+      notificationPermission === "default"
+    ) {
       setShowPermissionBanner(true);
     }
   }, [notificationsInitialized, notificationsEnabled, notificationPermission]);
@@ -192,7 +225,13 @@ export const DashboardStatsPro = ({
         }
       }
     }
-  }, [proteinPercentage, caloriesPercentage, onMedalEarned, onMedalOpen, shownMedals]);
+  }, [
+    proteinPercentage,
+    caloriesPercentage,
+    onMedalEarned,
+    onMedalOpen,
+    shownMedals,
+  ]);
 
   useEffect(() => {
     checkMedals();
@@ -207,33 +246,42 @@ export const DashboardStatsPro = ({
   }, [toggleNotificationSetting]);
 
   const handleTestNotification = useCallback(async () => {
-    console.log('🔔 Botão de teste clicado');
-    
+    console.log("🔔 Botão de teste clicado");
+
     if (meals.length === 0) {
-      alert('Adicione pelo menos uma refeição para testar as notificações!');
+      alert("Adicione pelo menos uma refeição para testar as notificações!");
       return;
     }
 
     try {
-      console.log('📊 Status antes do teste:');
-      console.log('- Notificações habilitadas:', notificationsEnabled);
-      console.log('- Service Worker suportado:', notificationsSupported);
-      console.log('- Permissão:', notificationPermission);
-      console.log('- Inicializado:', notificationsInitialized);
+      console.log("📊 Status antes do teste:");
+      console.log("- Notificações habilitadas:", notificationsEnabled);
+      console.log("- Service Worker suportado:", notificationsSupported);
+      console.log("- Permissão:", notificationPermission);
+      console.log("- Inicializado:", notificationsInitialized);
 
       const success = await sendTestNotification(meals[0]);
-      
+
       if (success) {
-        console.log('🎉 Teste de notificação bem-sucedido!');
+        console.log("🎉 Teste de notificação bem-sucedido!");
       } else {
-        console.log('❌ Teste de notificação falhou');
-        alert('Por favor, permita notificações para receber lembretes de refeições! 🔔');
+        console.log("❌ Teste de notificação falhou");
+        alert(
+          "Por favor, permita notificações para receber lembretes de refeições! 🔔"
+        );
       }
     } catch (error) {
-      console.error('💥 Erro inesperado no teste:', error);
-      alert('Erro ao testar notificação. Verifique o console para detalhes.');
+      console.error("💥 Erro inesperado no teste:", error);
+      alert("Erro ao testar notificação. Verifique o console para detalhes.");
     }
-  }, [meals, notificationsEnabled, notificationsSupported, notificationPermission, notificationsInitialized, sendTestNotification]);
+  }, [
+    meals,
+    notificationsEnabled,
+    notificationsSupported,
+    notificationPermission,
+    notificationsInitialized,
+    sendTestNotification,
+  ]);
 
   const getProgressColor = useCallback((percentage: number) => {
     if (percentage >= 100) return "success";
@@ -260,337 +308,399 @@ export const DashboardStatsPro = ({
   }, []);
 
   // Modal de configuração de notificações
-  const NotificationsModal = useMemo(() => (
-    <Modal
-      isOpen={isNotificationsOpen}
-      onClose={onNotificationsClose}
-      size="lg"
-    >
-      <ModalContent>
-        <ModalHeader className="flex items-center gap-2">
-          <div className="p-2 bg-orange-100 rounded-lg">
-            <Bell className="h-5 w-5 text-orange-600" />
-          </div>
-          <h3 className="text-xl font-bold text-orange-800">
-            Lembretes de Refeições
-          </h3>
-        </ModalHeader>
-        <ModalBody>
-          <div className="space-y-6 overflow-y-auto max-h-[60vh]">
-            <div className="text-center">
-              <div className="text-4xl mb-2">🍽️⏰</div>
-              <p className="text-default-600">
-                Receba lembretes automáticos para suas refeições, mesmo com o app fechado!
-              </p>
+  const NotificationsModal = useMemo(
+    () => (
+      <Modal
+        isOpen={isNotificationsOpen}
+        onClose={onNotificationsClose}
+        size="lg"
+      >
+        <ModalContent>
+          <ModalHeader className="flex items-center gap-2">
+            <div className="p-2 bg-orange-100 rounded-lg">
+              <Bell className="h-5 w-5 text-orange-600" />
             </div>
-
-            {/* Status do Service Worker */}
-            <div className={`p-4 rounded-xl border ${
-              notificationsSupported 
-                ? 'bg-green-50 border-green-200' 
-                : 'bg-red-50 border-red-200'
-            }`}>
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${
-                  notificationsSupported ? 'bg-green-100' : 'bg-red-100'
-                }`}>
-                  <Bell className={`h-5 w-5 ${
-                    notificationsSupported ? 'text-green-600' : 'text-red-600'
-                  }`} />
-                </div>
-                <div>
-                  <p className={`font-semibold ${
-                    notificationsSupported ? 'text-green-800' : 'text-red-800'
-                  }`}>
-                    {notificationsSupported 
-                      ? 'Notificações Ativas em Segundo Plano' 
-                      : 'Navegador Não Compatível'}
-                  </p>
-                  <p className={`text-sm ${
-                    notificationsSupported ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {notificationsSupported 
-                      ? 'Você receberá notificações mesmo com o app fechado'
-                      : 'Seu navegador não suporta notificações em segundo plano'
-                    }
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Switch de ativação */}
-            <div className="flex items-center justify-between p-4 bg-orange-50 rounded-xl border border-orange-200">
-              <div>
-                <p className="font-semibold text-orange-800">
-                  Notificações de Refeições
-                </p>
-                <p className="text-sm text-orange-600">
-                  Receba alertas 30 minutos antes e na hora de cada refeição
+            <h3 className="text-xl font-bold text-orange-800">
+              Lembretes de Refeições
+            </h3>
+          </ModalHeader>
+          <ModalBody>
+            <div className="space-y-6 overflow-y-auto max-h-[60vh]">
+              <div className="text-center">
+                <div className="text-4xl mb-2">🍽️⏰</div>
+                <p className="text-default-600">
+                  Receba lembretes automáticos para suas refeições, mesmo com o
+                  app fechado!
                 </p>
               </div>
-              <Switch
-                isSelected={notificationsEnabled}
-                onValueChange={toggleNotificationSetting}
-                color="warning"
-                size="lg"
-                isDisabled={!notificationsSupported}
-              />
-            </div>
 
-            {/* Status da Permissão */}
-            <div className={`p-4 rounded-xl border ${
-              notificationPermission === 'granted' 
-                ? 'bg-green-50 border-green-200' 
-                : notificationPermission === 'denied'
-                ? 'bg-red-50 border-red-200'
-                : 'bg-yellow-50 border-yellow-200'
-            }`}>
-              <div className="flex items-center justify-between">
+              {/* Status do Service Worker */}
+              <div
+                className={`p-4 rounded-xl border ${
+                  notificationsSupported
+                    ? "bg-green-50 border-green-200"
+                    : "bg-red-50 border-red-200"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`p-2 rounded-lg ${
+                      notificationsSupported ? "bg-green-100" : "bg-red-100"
+                    }`}
+                  >
+                    <Bell
+                      className={`h-5 w-5 ${
+                        notificationsSupported
+                          ? "text-green-600"
+                          : "text-red-600"
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <p
+                      className={`font-semibold ${
+                        notificationsSupported
+                          ? "text-green-800"
+                          : "text-red-800"
+                      }`}
+                    >
+                      {notificationsSupported
+                        ? "Notificações Ativas em Segundo Plano"
+                        : "Navegador Não Compatível"}
+                    </p>
+                    <p
+                      className={`text-sm ${
+                        notificationsSupported
+                          ? "text-green-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {notificationsSupported
+                        ? "Você receberá notificações mesmo com o app fechado"
+                        : "Seu navegador não suporta notificações em segundo plano"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Switch de ativação */}
+              <div className="flex items-center justify-between p-4 bg-orange-50 rounded-xl border border-orange-200">
                 <div>
-                  <p className={`font-semibold ${
-                    notificationPermission === 'granted' 
-                      ? 'text-green-800' 
-                      : notificationPermission === 'denied'
-                      ? 'text-red-800'
-                      : 'text-yellow-800'
-                  }`}>
-                    Permissão: {
-                      notificationPermission === 'granted' ? 'Concedida' :
-                      notificationPermission === 'denied' ? 'Negada' :
-                      'Pendente'
-                    }
+                  <p className="font-semibold text-orange-800">
+                    Notificações de Refeições
                   </p>
-                  <p className={`text-sm ${
-                    notificationPermission === 'granted' 
-                      ? 'text-green-600' 
-                      : notificationPermission === 'denied'
-                      ? 'text-red-600'
-                      : 'text-yellow-600'
-                  }`}>
-                    {notificationPermission === 'granted' 
-                      ? 'Você receberá notificações de refeições'
-                      : notificationPermission === 'denied'
-                      ? 'Você precisa permitir notificações nas configurações do navegador'
-                      : 'Clique em "Ativar Notificações" para permitir'
-                    }
+                  <p className="text-sm text-orange-600">
+                    Receba alertas 30 minutos antes e na hora de cada refeição
                   </p>
                 </div>
-                {notificationPermission !== 'granted' && (
+                <Switch
+                  isSelected={notificationsEnabled}
+                  onValueChange={toggleNotificationSetting}
+                  color="warning"
+                  size="lg"
+                  isDisabled={!notificationsSupported}
+                />
+              </div>
+
+              {/* Status da Permissão */}
+              <div
+                className={`p-4 rounded-xl border ${
+                  notificationPermission === "granted"
+                    ? "bg-green-50 border-green-200"
+                    : notificationPermission === "denied"
+                    ? "bg-red-50 border-red-200"
+                    : "bg-yellow-50 border-yellow-200"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p
+                      className={`font-semibold ${
+                        notificationPermission === "granted"
+                          ? "text-green-800"
+                          : notificationPermission === "denied"
+                          ? "text-red-800"
+                          : "text-yellow-800"
+                      }`}
+                    >
+                      Permissão:{" "}
+                      {notificationPermission === "granted"
+                        ? "Concedida"
+                        : notificationPermission === "denied"
+                        ? "Negada"
+                        : "Pendente"}
+                    </p>
+                    <p
+                      className={`text-sm ${
+                        notificationPermission === "granted"
+                          ? "text-green-600"
+                          : notificationPermission === "denied"
+                          ? "text-red-600"
+                          : "text-yellow-600"
+                      }`}
+                    >
+                      {notificationPermission === "granted"
+                        ? "Você receberá notificações de refeições"
+                        : notificationPermission === "denied"
+                        ? "Você precisa permitir notificações nas configurações do navegador"
+                        : 'Clique em "Ativar Notificações" para permitir'}
+                    </p>
+                  </div>
+                  {notificationPermission !== "granted" && (
+                    <Button
+                      color="warning"
+                      variant="flat"
+                      size="sm"
+                      onPress={requestNotificationPermission}
+                    >
+                      Solicitar Permissão
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Botão de teste */}
+              <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-yellow-800">
+                      Testar Notificações
+                    </p>
+                    <p className="text-sm text-yellow-600">
+                      Verifique se as notificações estão funcionando
+                    </p>
+                  </div>
                   <Button
                     color="warning"
                     variant="flat"
-                    size="sm"
-                    onPress={requestNotificationPermission}
+                    onPress={handleTestNotification}
+                    className="gap-2"
+                    isDisabled={
+                      !notificationsEnabled ||
+                      meals.length === 0 ||
+                      !notificationsSupported
+                    }
+                    startContent={<TestTube className="h-4 w-4" />}
                   >
-                    Solicitar Permissão
+                    Testar
                   </Button>
+                </div>
+              </div>
+
+              {/* Lista de refeições agendadas */}
+              <div className="space-y-4 overflow-y-auto max-h-64">
+                <h4 className="font-semibold text-default-800">
+                  Refeições Programadas
+                </h4>
+                {meals.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-default-500">
+                      Nenhuma refeição cadastrada
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {sortedMeals.map((meal) => (
+                      <div
+                        key={meal.id}
+                        className="flex items-center gap-3 p-3 bg-default-100 rounded-lg"
+                      >
+                        <div className="text-2xl">{meal.emoji}</div>
+                        <div className="flex-1">
+                          <p className="font-medium text-default-800">
+                            {meal.name}
+                          </p>
+                          <p className="text-sm text-default-600">
+                            {meal.time}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-default-700">
+                            Notificações:
+                          </p>
+                          <p className="text-xs text-default-500">
+                            30min antes + horário
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-            </div>
 
-            {/* Botão de teste */}
-            <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-yellow-800">
-                    Testar Notificações
-                  </p>
-                  <p className="text-sm text-yellow-600">
-                    Verifique se as notificações estão funcionando
-                  </p>
-                </div>
-                <Button
-                  color="warning"
-                  variant="flat"
-                  onPress={handleTestNotification}
-                  className="gap-2"
-                  isDisabled={!notificationsEnabled || meals.length === 0 || !notificationsSupported}
-                  startContent={<TestTube className="h-4 w-4" />}
-                >
-                  Testar
-                </Button>
+              {/* Informações */}
+              <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                <p className="text-sm text-blue-700 text-center">
+                  💡 <strong>Funcionalidade Premium:</strong> Com o Service
+                  Worker ativo, você receberá notificações mesmo com o app
+                  fechado! Perfeito para não esquecer das refeições! 🚀
+                </p>
               </div>
             </div>
-
-            {/* Lista de refeições agendadas */}
-            <div className="space-y-4 overflow-y-auto max-h-64">
-              <h4 className="font-semibold text-default-800">
-                Refeições Programadas
-              </h4>
-              {meals.length === 0 ? (
-                <div className="text-center py-4">
-                  <p className="text-default-500">
-                    Nenhuma refeição cadastrada
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {sortedMeals.map((meal) => (
-                    <div
-                      key={meal.id}
-                      className="flex items-center gap-3 p-3 bg-default-100 rounded-lg"
-                    >
-                      <div className="text-2xl">{meal.emoji}</div>
-                      <div className="flex-1">
-                        <p className="font-medium text-default-800">
-                          {meal.name}
-                        </p>
-                        <p className="text-sm text-default-600">{meal.time}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-default-700">
-                          Notificações:
-                        </p>
-                        <p className="text-xs text-default-500">
-                          30min antes + horário
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Informações */}
-            <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
-              <p className="text-sm text-blue-700 text-center">
-                💡 <strong>Funcionalidade Premium:</strong> Com o Service Worker ativo, você receberá notificações mesmo com o app fechado! Perfeito para não esquecer das refeições! 🚀
-              </p>
-            </div>
-          </div>
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="light" onPress={onNotificationsClose}>
-            Fechar
-          </Button>
-          <Button
-            color="warning"
-            onPress={onNotificationsClose}
-            className="bg-gradient-to-r from-orange-500 to-yellow-500"
-          >
-            Salvar Configurações
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
-  ), [isNotificationsOpen, notificationsSupported, notificationsEnabled, notificationPermission, toggleNotificationSetting, requestNotificationPermission, handleTestNotification, meals.length, sortedMeals, onNotificationsClose]);
-
-  const MedalModal = useMemo(() => (
-    <Modal
-      isOpen={isMedalOpen}
-      onClose={onMedalClose}
-      size="md"
-      classNames={{
-        base: "border-0 bg-gradient-to-br from-purple-50 to-blue-50",
-        header: "border-b-0",
-        footer: "border-t-0",
-      }}
-    >
-      <ModalContent>
-        <Confetti active={isMedalOpen} />
-        <ModalHeader className="flex flex-col items-center gap-1 pt-8">
-          <div className="text-6xl animate-pulse">
-            {currentMedal && MedalSystem.getMedalIcon(currentMedal.type)}
-          </div>
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-            Medalha Conquistada!
-          </h2>
-        </ModalHeader>
-        <ModalBody className="text-center">
-          <p className="text-lg font-semibold text-default-700">
-            {currentMedal?.message}
-          </p>
-          <p className="text-default-600">
-            Você atingiu <strong>{currentMedal?.percentage.toFixed(1)}%</strong>{" "}
-            da sua meta de{" "}
-            {currentMedal?.category === "protein" ? "proteína" : "calorias"}!
-          </p>
-          <div className="mt-4 p-4 bg-white rounded-xl shadow-lg border border-default-200">
-            <div
-              className={`text-4xl ${
-                currentMedal ? MedalSystem.getMedalColor(currentMedal.type) : ""
-              }`}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="light" onPress={onNotificationsClose}>
+              Fechar
+            </Button>
+            <Button
+              color="warning"
+              onPress={onNotificationsClose}
+              className="bg-gradient-to-r from-orange-500 to-yellow-500"
             >
+              Salvar Configurações
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    ),
+    [
+      isNotificationsOpen,
+      notificationsSupported,
+      notificationsEnabled,
+      notificationPermission,
+      toggleNotificationSetting,
+      requestNotificationPermission,
+      handleTestNotification,
+      meals.length,
+      sortedMeals,
+      onNotificationsClose,
+    ]
+  );
+
+  const MedalModal = useMemo(
+    () => (
+      <Modal
+        isOpen={isMedalOpen}
+        onClose={onMedalClose}
+        size="md"
+        classNames={{
+          base: "border-0 bg-gradient-to-br from-purple-50 to-blue-50",
+          header: "border-b-0",
+          footer: "border-t-0",
+        }}
+      >
+        <ModalContent>
+          <Confetti active={isMedalOpen} />
+          <ModalHeader className="flex flex-col items-center gap-1 pt-8">
+            <div className="text-6xl animate-pulse">
               {currentMedal && MedalSystem.getMedalIcon(currentMedal.type)}
             </div>
-            <p
-              className={`font-bold mt-2 ${
-                currentMedal ? MedalSystem.getMedalColor(currentMedal.type) : ""
-              }`}
-            >
-              Medalha de{" "}
-              {currentMedal?.type === "gold"
-                ? "Ouro"
-                : currentMedal?.type === "silver"
-                ? "Prata"
-                : "Bronze"}
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+              Medalha Conquistada!
+            </h2>
+          </ModalHeader>
+          <ModalBody className="text-center">
+            <p className="text-lg font-semibold text-default-700">
+              {currentMedal?.message}
             </p>
-          </div>
-        </ModalBody>
-        <ModalFooter className="justify-center">
-          <Button
-            color="primary"
-            onPress={onMedalClose}
-            className="bg-gradient-to-r from-purple-500 to-blue-500 text-white font-bold px-8"
-          >
-            Continuar a Jornada!
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
-  ), [isMedalOpen, currentMedal, onMedalClose]);
+            <p className="text-default-600">
+              Você atingiu{" "}
+              <strong>{currentMedal?.percentage.toFixed(1)}%</strong> da sua
+              meta de{" "}
+              {currentMedal?.category === "protein" ? "proteína" : "calorias"}!
+            </p>
+            <div className="mt-4 p-4 bg-white rounded-xl shadow-lg border border-default-200">
+              <div
+                className={`text-4xl ${
+                  currentMedal
+                    ? MedalSystem.getMedalColor(currentMedal.type)
+                    : ""
+                }`}
+              >
+                {currentMedal && MedalSystem.getMedalIcon(currentMedal.type)}
+              </div>
+              <p
+                className={`font-bold mt-2 ${
+                  currentMedal
+                    ? MedalSystem.getMedalColor(currentMedal.type)
+                    : ""
+                }`}
+              >
+                Medalha de{" "}
+                {currentMedal?.type === "gold"
+                  ? "Ouro"
+                  : currentMedal?.type === "silver"
+                  ? "Prata"
+                  : "Bronze"}
+              </p>
+            </div>
+          </ModalBody>
+          <ModalFooter className="justify-center">
+            <Button
+              color="primary"
+              onPress={onMedalClose}
+              className="bg-gradient-to-r from-purple-500 to-blue-500 text-white font-bold px-8"
+            >
+              Continuar a Jornada!
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    ),
+    [isMedalOpen, currentMedal, onMedalClose]
+  );
 
   // Comunidade de usuários online
   const { onlineUsers } = useOnlineUsers();
-  const onlineUsersCount = useMemo(() => 
-    onlineUsers.filter(user => user.isOnline && user.profileEnabled).length, 
+  const onlineUsersCount = useMemo(
+    () =>
+      onlineUsers.filter((user) => user.isOnline && user.profileEnabled).length,
     [onlineUsers]
   );
 
   // Cabeçalho com medalhas memoizado
-  const proteinMedalIcon = useMemo(() => getMedalForPercentage(proteinPercentage), [proteinPercentage, getMedalForPercentage]);
-  const caloriesMedalIcon = useMemo(() => getMedalForPercentage(caloriesPercentage), [caloriesPercentage, getMedalForPercentage]);
+  const proteinMedalIcon = useMemo(
+    () => getMedalForPercentage(proteinPercentage),
+    [proteinPercentage, getMedalForPercentage]
+  );
+  const caloriesMedalIcon = useMemo(
+    () => getMedalForPercentage(caloriesPercentage),
+    [caloriesPercentage, getMedalForPercentage]
+  );
 
   // Totais do dia memoizados
-  const totalRow = useMemo(() => (
-    <TableRow className="bg-default-100 border-t-2 border-default-300">
-      <TableCell colSpan={3} className="text-right font-bold py-4">
-        <div className="flex items-center justify-end gap-2">
-          <span>Total do Dia</span>
-          <Progress
-            size="sm"
-            value={proteinPercentage}
-            className="max-w-24"
-            color="primary"
-          />
-        </div>
-      </TableCell>
-      <TableCell>
-        <div className="flex justify-center">
-          <Chip
-            color="primary"
-            variant="solid"
-            startContent={<span className="text-xs">📊</span>}
-            className="font-bold shadow-md"
-          >
-            {currentProtein}g
-          </Chip>
-        </div>
-      </TableCell>
-      <TableCell>
-        <div className="flex justify-center">
-          <Chip
-            color="warning"
-            variant="solid"
-            startContent={<span className="text-xs">📊</span>}
-            className="font-bold shadow-md"
-          >
-            {currentCalories}
-          </Chip>
-        </div>
-      </TableCell>
-    </TableRow>
-  ), [proteinPercentage, currentProtein, currentCalories]);
+  const totalRow = useMemo(
+    () => (
+      <TableRow className="bg-default-100 border-t-2 border-default-300">
+        <TableCell colSpan={3} className="text-right font-bold py-4">
+          <div className="flex items-center justify-end gap-2">
+            <span>Total do Dia</span>
+            <Progress
+              size="sm"
+              value={proteinPercentage}
+              className="max-w-24"
+              color="primary"
+            />
+          </div>
+        </TableCell>
+        <TableCell>
+          <div className="flex justify-center">
+            <Chip
+              color="primary"
+              variant="solid"
+              startContent={<span className="text-xs">📊</span>}
+              className="font-bold shadow-md"
+            >
+              {currentProtein}g
+            </Chip>
+          </div>
+        </TableCell>
+        <TableCell>
+          <div className="flex justify-center">
+            <Chip
+              color="warning"
+              variant="solid"
+              startContent={<span className="text-xs">📊</span>}
+              className="font-bold shadow-md"
+            >
+              {currentCalories}
+            </Chip>
+          </div>
+        </TableCell>
+      </TableRow>
+    ),
+    [proteinPercentage, currentProtein, currentCalories]
+  );
 
   // Footer dos cards memoizado
   const proteinFooterMessage = useMemo(() => {
@@ -608,55 +718,70 @@ export const DashboardStatsPro = ({
   }, [caloriesPercentage]);
 
   // Total do dia mobile memoizado
-  const mobileTotalSection = useMemo(() => (
-    <div className="bg-default-100 rounded-xl p-4 border border-default-200 mt-4">
-      <div className="flex justify-between items-center mb-3">
-        <span className="font-bold text-default-800">Total do Dia</span>
-        <div className="flex gap-2">
-          <Chip
-            color="primary"
-            variant="solid"
+  const mobileTotalSection = useMemo(
+    () => (
+      <div className="bg-default-100 rounded-xl p-4 border border-default-200 mt-4">
+        <div className="flex justify-between items-center mb-3">
+          <span className="font-bold text-default-800">Total do Dia</span>
+          <div className="flex gap-2">
+            <Chip
+              color="primary"
+              variant="solid"
+              size="sm"
+              startContent={<span className="text-xs">📊</span>}
+              className="font-bold"
+            >
+              {currentProtein}g
+            </Chip>
+            <Chip
+              color="warning"
+              variant="solid"
+              size="sm"
+              startContent={<span className="text-xs">📊</span>}
+              className="font-bold"
+            >
+              {currentCalories}
+            </Chip>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-default-600">Progresso de Proteína</span>
+            <span className="font-medium">
+              {currentProtein}/{proteinGoal}g
+            </span>
+          </div>
+          <Progress
             size="sm"
-            startContent={<span className="text-xs">📊</span>}
-            className="font-bold"
-          >
-            {currentProtein}g
-          </Chip>
-          <Chip
-            color="warning"
-            variant="solid"
+            value={proteinPercentage}
+            color={getProgressColor(proteinPercentage)}
+            className="w-full"
+          />
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-default-600">Progresso de Calorias</span>
+            <span className="font-medium">
+              {currentCalories}/{caloriesGoal}
+            </span>
+          </div>
+          <Progress
             size="sm"
-            startContent={<span className="text-xs">📊</span>}
-            className="font-bold"
-          >
-            {currentCalories}
-          </Chip>
+            value={caloriesPercentage}
+            color={getProgressColor(caloriesPercentage)}
+            className="w-full"
+          />
         </div>
       </div>
-      <div className="space-y-2">
-        <div className="flex justify-between items-center text-sm">
-          <span className="text-default-600">Progresso de Proteína</span>
-          <span className="font-medium">{currentProtein}/{proteinGoal}g</span>
-        </div>
-        <Progress
-          size="sm"
-          value={proteinPercentage}
-          color={getProgressColor(proteinPercentage)}
-          className="w-full"
-        />
-        <div className="flex justify-between items-center text-sm">
-          <span className="text-default-600">Progresso de Calorias</span>
-          <span className="font-medium">{currentCalories}/{caloriesGoal}</span>
-        </div>
-        <Progress
-          size="sm"
-          value={caloriesPercentage}
-          color={getProgressColor(caloriesPercentage)}
-          className="w-full"
-        />
-      </div>
-    </div>
-  ), [currentProtein, proteinGoal, proteinPercentage, currentCalories, caloriesGoal, caloriesPercentage, getProgressColor]);
+    ),
+    [
+      currentProtein,
+      proteinGoal,
+      proteinPercentage,
+      currentCalories,
+      caloriesGoal,
+      caloriesPercentage,
+      getProgressColor,
+    ]
+  );
 
   return (
     <>
@@ -702,13 +827,28 @@ export const DashboardStatsPro = ({
                   </p>
                 </div>
                 {proteinPercentage >= 100 && (
-                  <Chip
-                    color="success"
-                    variant="shadow"
-                    className="ml-auto animate-pulse"
-                  >
-                    <Award className="h-3 w-3 mr-1" />
-                    Completo
+                  <Chip className="ml-auto bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 text-white font-medium shadow-lg shadow-emerald-400/20 hover:shadow-emerald-400/30 transition-all duration-300 group">
+                    <div className="flex items-center gap-1.5">
+                      {/* Icon with matching glow */}
+                      <div className="relative">
+                        <Award className="h-3.5 w-3.5 group-hover:scale-110 transition-transform duration-300" />
+                        <div className="absolute inset-0 bg-[#05b651]/30 rounded-full blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      </div>
+
+                      {/* Text */}
+                      <span className="font-semibold tracking-wide text-sm">
+                        Completo
+                      </span>
+
+                      {/* Vibrant pulse with #05b651 */}
+                      <div className="ml-1 relative">
+                        <div className="h-1.5 w-1.5 bg-[#05b651] rounded-full animate-pulse group-hover:animate-none" />
+                        <div
+                          className="absolute inset-0 h-1.5 w-1.5 bg-[#05b651] rounded-full animate-ping opacity-70"
+                          style={{ animationDuration: "2s" }}
+                        />
+                      </div>
+                    </div>
                   </Chip>
                 )}
               </CardHeader>
@@ -754,7 +894,9 @@ export const DashboardStatsPro = ({
                 <CardFooter className="bg-success-50 border-t border-success-200">
                   <div className="flex items-center gap-2 text-success-700">
                     <Star className="h-4 w-4" />
-                    <span className="text-sm font-medium">{proteinFooterMessage}</span>
+                    <span className="text-sm font-medium">
+                      {proteinFooterMessage}
+                    </span>
                   </div>
                 </CardFooter>
               )}
@@ -785,13 +927,28 @@ export const DashboardStatsPro = ({
                   </p>
                 </div>
                 {caloriesPercentage >= 100 && (
-                  <Chip
-                    color="success"
-                    variant="shadow"
-                    className="ml-auto animate-pulse"
-                  >
-                    <Award className="h-3 w-3 mr-1" />
-                    Completo
+                  <Chip className="ml-auto bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 text-white font-medium shadow-lg shadow-emerald-400/20 hover:shadow-emerald-400/30 transition-all duration-300 group">
+                    <div className="flex items-center gap-1.5">
+                      {/* Icon with matching glow */}
+                      <div className="relative">
+                        <Award className="h-3.5 w-3.5 group-hover:scale-110 transition-transform duration-300" />
+                        <div className="absolute inset-0 bg-[#05b651]/30 rounded-full blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      </div>
+
+                      {/* Text */}
+                      <span className="font-semibold tracking-wide text-sm">
+                        Completo
+                      </span>
+
+                      {/* Vibrant pulse with #05b651 */}
+                      <div className="ml-1 relative">
+                        <div className="h-1.5 w-1.5 bg-[#05b651] rounded-full animate-pulse group-hover:animate-none" />
+                        <div
+                          className="absolute inset-0 h-1.5 w-1.5 bg-[#05b651] rounded-full animate-ping opacity-70"
+                          style={{ animationDuration: "2s" }}
+                        />
+                      </div>
+                    </div>
                   </Chip>
                 )}
               </CardHeader>
@@ -839,7 +996,9 @@ export const DashboardStatsPro = ({
                 <CardFooter className="bg-success-50 border-t border-success-200">
                   <div className="flex items-center gap-2 text-success-700">
                     <Star className="h-4 w-4" />
-                    <span className="text-sm font-medium">{caloriesFooterMessage}</span>
+                    <span className="text-sm font-medium">
+                      {caloriesFooterMessage}
+                    </span>
                   </div>
                 </CardFooter>
               )}
@@ -969,7 +1128,9 @@ export const DashboardStatsPro = ({
                                 <Chip
                                   color="primary"
                                   variant="flat"
-                                  startContent={<span className="text-xs">🎯</span>}
+                                  startContent={
+                                    <span className="text-xs">🎯</span>
+                                  }
                                 >
                                   Meta: {proteinGoal}g
                                 </Chip>
@@ -980,7 +1141,9 @@ export const DashboardStatsPro = ({
                                 <Chip
                                   color="warning"
                                   variant="flat"
-                                  startContent={<span className="text-xs">🎯</span>}
+                                  startContent={
+                                    <span className="text-xs">🎯</span>
+                                  }
                                 >
                                   Meta: {caloriesGoal} kcal
                                 </Chip>
