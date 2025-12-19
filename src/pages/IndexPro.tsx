@@ -1,5 +1,5 @@
 // pages/IndexPro.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -106,21 +106,21 @@ const IndexPro = () => {
   }, []);
 
   // Funções de gamificação
-  const addMedal = (medal: any) => {
+  const addMedal = useCallback((medal: any) => {
     const newMedal = {
       ...medal,
       id: `medal-${Date.now()}`,
     };
     setMedals((prev) => [newMedal, ...prev]);
-  };
+  }, []);
 
-  const updateProfile = (profile: UserProfile) => {
+  const updateProfile = useCallback((profile: UserProfile) => {
     setUserProfile(profile);
     storage.saveUserProfile(profile);
-  };
+  }, []);
 
-  // Calcular progresso do dia
-  useEffect(() => {
+  // Calcular progresso do dia com useMemo
+  const dayProgressCalculation = useMemo(() => {
     const calculateDayProgress = () => {
       const now = new Date();
       const currentHour = now.getHours();
@@ -131,7 +131,7 @@ const IndexPro = () => {
       const startTime = 7 * 60;
 
       // Horário final - usa o último horário do plano selecionado
-      const mealTimes = selectedPlan.meals.map((meal) => {
+      const mealTimes = (selectedPlan?.meals || []).map((meal) => {
         const [hours, minutes] = meal.time.split(":").map(Number);
         return hours * 60 + minutes;
       });
@@ -142,38 +142,46 @@ const IndexPro = () => {
       const elapsedMinutes = Math.max(0, currentTimeInMinutes - startTime);
       const progress = Math.min(100, (elapsedMinutes / totalMinutes) * 100);
 
-      setDayProgress(progress);
+      return progress;
     };
 
-    calculateDayProgress();
-    const interval = setInterval(calculateDayProgress, 60000);
+    return calculateDayProgress();
+  }, [selectedPlan?.meals]);
+
+  useEffect(() => {
+    setDayProgress(dayProgressCalculation);
+    const interval = setInterval(() => {
+      const newProgress = dayProgressCalculation;
+      setDayProgress(newProgress);
+    }, 60000);
 
     return () => clearInterval(interval);
-  }, [selectedPlanId, selectedPlan.meals]);
+  }, [dayProgressCalculation]);
 
-  const navItems = [
+  // Nav items memoizado
+  const navItems = useMemo(() => [
     { icon: Home, label: "Início", value: "home" },
-    { icon: Droplets, label: "Água", value: "water" }, // Novo item
+    { icon: Droplets, label: "Água", value: "water" },
     { icon: Calendar, label: "Planejamento", value: "plan" },
     { icon: MessageSquare, label: "Chat IA", value: "chat" },
     { icon: BarChart3, label: "Gráficos", value: "stats" },
     { icon: Settings, label: "Perfil", value: "profile" },
-  ];
+  ], []);
 
-  const handleEditMeal = (meal: Meal) => {
+  const handleEditMeal = useCallback((meal: Meal) => {
     setEditingMeal(meal);
     setIsEditOpen(true);
-  };
+  }, []);
 
-  const handleSaveMeal = (updatedMeal: Meal) => {
+  const handleSaveMeal = useCallback((updatedMeal: Meal) => {
     updateMeal(selectedPlanId, updatedMeal.id, updatedMeal);
     toast({
       title: "Refeição atualizada",
       description: "A refeição foi atualizada com sucesso",
     });
-  };
+  }, [selectedPlanId, updateMeal, toast]);
 
-  const handleAddNewMeal = () => {
+  const handleAddNewMeal = useCallback(() => {
     const newMeal: Meal = {
       id: `meal-${Date.now()}`,
       time: "12:00",
@@ -187,14 +195,14 @@ const IndexPro = () => {
 
     setEditingMeal(newMeal);
     setIsEditOpen(true);
-  };
+  }, []);
 
-  const handleDeleteClick = (mealId: string) => {
+  const handleDeleteClick = useCallback((mealId: string) => {
     setMealToDelete(mealId);
     setIsDeleteOpen(true);
-  };
+  }, []);
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = useCallback(() => {
     if (mealToDelete) {
       deleteMeal(selectedPlanId, mealToDelete);
       toast({
@@ -204,19 +212,19 @@ const IndexPro = () => {
     }
     setIsDeleteOpen(false);
     setMealToDelete(null);
-  };
+  }, [mealToDelete, selectedPlanId, deleteMeal, toast]);
 
-  const handleResetPlan = () => {
+  const handleResetPlan = useCallback(() => {
     resetToDefault();
     toast({
       title: "Plano resetado",
       description: "O planejamento foi restaurado aos valores padrão",
     });
-  };
+  }, [resetToDefault, toast]);
 
-  const handleEditClose = () => {
+  const handleEditClose = useCallback(() => {
     if (editingMeal) {
-      const existingMeal = selectedPlan.meals.find(
+      const existingMeal = (selectedPlan?.meals || []).find(
         (m) => m.id === editingMeal.id
       );
       if (!existingMeal && editingMeal.foods.length > 0) {
@@ -225,7 +233,240 @@ const IndexPro = () => {
     }
     setIsEditOpen(false);
     setEditingMeal(null);
-  };
+  }, [editingMeal, selectedPlan?.meals, selectedPlanId, addMeal]);
+
+  const handleSelectPlan = useCallback((planId: string) => {
+    selectPlan(planId);
+  }, [selectPlan]);
+
+  // Memoizar plan buttons
+  const planButtons = useMemo(() => [
+    {
+      label: "Modelos",
+      icon: Layers,
+      onClick: () => setManagePlansOpen(true),
+      variant: "outline" as const,
+    },
+  ], []);
+
+  // Memoizar dashboard stats
+  const dashboardStatsProps = useMemo(() => ({
+    currentProtein: selectedPlan?.totalProtein || 0,
+    currentCalories: selectedPlan?.totalCalories || 0,
+    meals: selectedPlan?.meals || [],
+    selectedPlan: selectedPlan || null,
+    onMedalEarned: addMedal,
+  }), [selectedPlan, addMedal]);
+
+  // Memoizar meal cards para cada plano
+  const mealCards = useMemo(() => {
+    const meals = selectedPlan?.meals || [];
+    return meals.map((meal) => (
+      <MealCardPro
+        key={meal.id}
+        meal={meal}
+        onEdit={() => handleEditMeal(meal)}
+        onDelete={() => handleDeleteClick(meal.id)}
+      />
+    ));
+  }, [selectedPlan?.meals, handleEditMeal, handleDeleteClick]);
+
+  // Memoizar cards de planos
+  const planCards = useMemo(() => 
+    plans.map((plan) => (
+      <Card
+        key={plan.id}
+        className={`cursor-pointer transition-all hover:bg-accent ${
+          selectedPlanId === plan.id
+            ? "border-2 border-primary bg-primary/5"
+            : ""
+        }`}
+        onClick={() => handleSelectPlan(plan.id)}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between mb-3">
+            <h3 className="text-lg font-bold">{plan.name}</h3>
+            {selectedPlanId === plan.id && (
+              <Badge variant="secondary" className="text-xs">
+                Ativo
+              </Badge>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="text-xs">
+              🍗 {plan.meals.length} refeições
+            </Badge>
+            <Badge variant="secondary" className="text-xs">
+              💪 {plan.totalProtein}g
+            </Badge>
+            <Badge variant="secondary" className="text-xs">
+              🔥 {plan.totalCalories}kcal
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+    )), [plans, selectedPlanId, handleSelectPlan]);
+
+  // Memoizar estatísticas de gráficos
+  const statsCards = useMemo(() => [
+    {
+      title: "Tendência da Semana",
+      icon: TrendingUp,
+      iconColor: "text-green-600",
+      description: `Seu progresso está ${Math.random() > 0.5 ? "melhorando" : "estável"} esta semana.`,
+      badges: [
+        { text: "+5% proteína", className: "bg-green-50 text-green-700" },
+        { text: "+2% consistência", className: "bg-blue-50 text-blue-700" },
+      ],
+    },
+    {
+      title: "Próximas Metas",
+      icon: Target,
+      iconColor: "text-purple-600",
+      description: "Mantenha a consistência para alcançar suas metas.",
+      items: [
+        { label: "Dias consecutivos na meta:", value: "3", badgeVariant: "default" as const },
+        { label: "Meta do mês:", value: "22/30 dias", badgeVariant: "secondary" as const },
+      ],
+    },
+  ], []);
+
+  // Memoizar conteúdo das tabs
+  const tabContent = useMemo(() => ({
+    home: {
+      title: "Dashboard",
+      description: "Resumo do seu dia nutricional",
+    },
+    plan: {
+      title: "Planejamento Alimentar",
+      description: "Visualize e ajuste seu plano nutricional",
+    },
+    water: {
+      title: "Contador de Água",
+      description: "Acompanhe sua hidratação diária",
+    },
+    chat: {
+      title: "Chat com IA",
+      description: "Tire suas dúvidas sobre nutrição e planejamento",
+    },
+    stats: {
+      title: "Estatísticas e Gráficos",
+      description: "Acompanhe seu progresso mensal",
+    },
+    profile: {
+      title: "Perfil",
+      description: "Suas metas e configurações",
+    },
+  }), []);
+
+  // Memoizar badges de data
+  const dateBadge = useMemo(() => {
+    const currentDate = new Date();
+    return (
+      <Badge variant="outline" className="gap-2">
+        <Calendar className="h-3 w-3" />
+        {currentDate.toLocaleDateString("pt-BR", {
+          month: "long",
+          year: "numeric",
+        })}
+      </Badge>
+    );
+  }, []);
+
+  // Memoizar o componente de edit meal dialog
+  const editMealDialog = useMemo(() => {
+    if (!editingMeal) return null;
+    
+    return (
+      <EditMealDialogPro
+        meal={editingMeal}
+        isOpen={isEditOpen}
+        onOpenChange={(open) => {
+          setIsEditOpen(open);
+          if (!open) handleEditClose();
+        }}
+        onSave={handleSaveMeal}
+      />
+    );
+  }, [editingMeal, isEditOpen, handleEditClose, handleSaveMeal]);
+
+  // Memoizar delete dialog
+  const deleteDialog = useMemo(() => (
+    <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Confirmar exclusão</DialogTitle>
+          <DialogDescription>
+            Tem certeza que deseja excluir esta refeição? Esta ação não pode
+            ser desfeita.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
+            Cancelar
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleDeleteConfirm}
+            className="gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            Excluir
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  ), [isDeleteOpen, handleDeleteConfirm]);
+
+  // Memoizar manage plans dialog
+  const managePlansDialog = useMemo(() => (
+    <ManagePlansDialog
+      isOpen={managePlansOpen}
+      onOpenChange={setManagePlansOpen}
+      plans={plans}
+      selectedPlanId={selectedPlanId}
+      onSelectPlan={selectPlan}
+      onCreatePlan={createNewPlan}
+      onUpdatePlan={updatePlan}
+      onDeletePlan={deletePlan}
+      onDuplicatePlan={duplicatePlan}
+    />
+  ), [managePlansOpen, plans, selectedPlanId, selectPlan, createNewPlan, updatePlan, deletePlan, duplicatePlan]);
+
+  // Memoizar navigation buttons para desktop
+  const desktopNavButtons = useMemo(() => 
+    navItems.map(({ icon: Icon, label, value }) => (
+      <Button
+        key={value}
+        variant={activeTab === value ? "default" : "ghost"}
+        size="sm"
+        onClick={() => setActiveTab(value)}
+        className={`gap-2 ${
+          activeTab === value
+            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+            : ""
+        }`}
+      >
+        <Icon className="h-4 w-4" />
+        {label}
+      </Button>
+    )), [navItems, activeTab]);
+
+  // Memoizar mobile navigation
+  const mobileNavButtons = useMemo(() => 
+    navItems.map(({ icon: Icon, value }) => (
+      <Button
+        key={value}
+        variant="ghost"
+        size="icon"
+        onClick={() => setActiveTab(value)}
+        className={
+          activeTab === value ? "text-primary" : "text-muted-foreground"
+        }
+      >
+        <Icon className="h-5 w-5" />
+      </Button>
+    )), [navItems, activeTab]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -254,22 +495,7 @@ const IndexPro = () => {
           </Button>
 
           <nav className="hidden md:flex gap-2">
-            {navItems.map(({ icon: Icon, label, value }) => (
-              <Button
-                key={value}
-                variant={activeTab === value ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setActiveTab(value)}
-                className={`gap-2 ${
-                  activeTab === value
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : ""
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </Button>
-            ))}
+            {desktopNavButtons}
           </nav>
         </div>
       </header>
@@ -278,11 +504,9 @@ const IndexPro = () => {
       <main className="container max-w-7xl mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="hidden">
-            <TabsTrigger value="home">Início</TabsTrigger>
-            <TabsTrigger value="plan">Planejamento</TabsTrigger>
-            <TabsTrigger value="chat">Chat IA</TabsTrigger>
-            <TabsTrigger value="stats">Gráficos</TabsTrigger>
-            <TabsTrigger value="profile">Perfil</TabsTrigger>
+            {navItems.map(({ value, label }) => (
+              <TabsTrigger key={value} value={value}>{label}</TabsTrigger>
+            ))}
           </TabsList>
 
           {/* Dashboard */}
@@ -290,35 +514,32 @@ const IndexPro = () => {
             <div className="space-y-6 animate-fade-in">
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                  <h2 className="text-3xl font-bold">Dashboard</h2>
+                  <h2 className="text-3xl font-bold">{tabContent.home.title}</h2>
                   <p className="text-default-500">
-                    Resumo do seu dia nutricional
+                    {tabContent.home.description}
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    onClick={() => setManagePlansOpen(true)}
-                    variant="outline"
-                    className="gap-2"
-                  >
-                    <Layers className="h-4 w-4" />
-                    Modelos
-                  </Button>
+                  {planButtons.map((button, index) => (
+                    <Button
+                      key={index}
+                      onClick={button.onClick}
+                      variant={button.variant}
+                      className="gap-2"
+                    >
+                      <button.icon className="h-4 w-4" />
+                      {button.label}
+                    </Button>
+                  ))}
                 </div>
               </div>
 
-<DashboardStatsPro
-  currentProtein={selectedPlan?.totalProtein || 0}
-  currentCalories={selectedPlan?.totalCalories || 0}
-  meals={selectedPlan?.meals || []}
-  selectedPlan={selectedPlan || null}
-  onMedalEarned={addMedal}
-/>
+              <DashboardStatsPro {...dashboardStatsProps} />
 
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xl font-bold">
-                    Refeições de Hoje - {selectedPlan.name}
+                    Refeições de Hoje - {selectedPlan?.name || "Plano"}
                   </h3>
                   <div className="flex gap-2">
                     <Button
@@ -332,14 +553,7 @@ const IndexPro = () => {
                   </div>
                 </div>
                 <div className="grid gap-4">
-                  {selectedPlan.meals.map((meal) => (
-                    <MealCardPro
-                      key={meal.id}
-                      meal={meal}
-                      onEdit={() => handleEditMeal(meal)}
-                      onDelete={() => handleDeleteClick(meal.id)}
-                    />
-                  ))}
+                  {mealCards}
                 </div>
               </div>
             </div>
@@ -350,9 +564,9 @@ const IndexPro = () => {
             <div className="space-y-6 animate-fade-in">
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                  <h2 className="text-3xl font-bold">Planejamento Alimentar</h2>
+                  <h2 className="text-3xl font-bold">{tabContent.plan.title}</h2>
                   <p className="text-muted-foreground">
-                    Visualize e ajuste seu plano nutricional
+                    {tabContent.plan.description}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -377,45 +591,13 @@ const IndexPro = () => {
 
               {/* Seleção de Planos */}
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {plans.map((plan) => (
-                  <Card
-                    key={plan.id}
-                    className={`cursor-pointer transition-all hover:bg-accent ${
-                      selectedPlanId === plan.id
-                        ? "border-2 border-primary bg-primary/5"
-                        : ""
-                    }`}
-                    onClick={() => selectPlan(plan.id)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <h3 className="text-lg font-bold">{plan.name}</h3>
-                        {selectedPlanId === plan.id && (
-                          <Badge variant="secondary" className="text-xs">
-                            Ativo
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          🍗 {plan.meals.length} refeições
-                        </Badge>
-                        <Badge variant="secondary" className="text-xs">
-                          💪 {plan.totalProtein}g
-                        </Badge>
-                        <Badge variant="secondary" className="text-xs">
-                          🔥 {plan.totalCalories}kcal
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                {planCards}
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xl font-bold">
-                    Refeições - {selectedPlan.name}
+                    Refeições - {selectedPlan?.name || "Plano"}
                   </h3>
                   <Button
                     onClick={handleAddNewMeal}
@@ -427,14 +609,7 @@ const IndexPro = () => {
                   </Button>
                 </div>
                 <div className="grid gap-4">
-                  {selectedPlan.meals.map((meal) => (
-                    <MealCardPro
-                      key={meal.id}
-                      meal={meal}
-                      onEdit={() => handleEditMeal(meal)}
-                      onDelete={() => handleDeleteClick(meal.id)}
-                    />
-                  ))}
+                  {mealCards}
                 </div>
               </div>
             </div>
@@ -443,9 +618,9 @@ const IndexPro = () => {
           <TabsContent value="water">
             <div className="space-y-6 mb-8 animate-fade-in">
               <div>
-                <h2 className="text-3xl font-bold">Contador de Água</h2>
+                <h2 className="text-3xl font-bold">{tabContent.water.title}</h2>
                 <p className="text-muted-foreground">
-                  Acompanhe sua hidratação diária
+                  {tabContent.water.description}
                 </p>
               </div>
               <WaterTracker onMedalEarned={addMedal} />
@@ -456,9 +631,9 @@ const IndexPro = () => {
           <TabsContent value="chat">
             <div className="space-y-6 animate-fade-in">
               <div>
-                <h2 className="text-3xl font-bold">Chat com IA</h2>
+                <h2 className="text-3xl font-bold">{tabContent.chat.title}</h2>
                 <p className="text-muted-foreground">
-                  Tire suas dúvidas sobre nutrição e planejamento
+                  {tabContent.chat.description}
                 </p>
               </div>
               <ChatInterfacePro />
@@ -471,20 +646,14 @@ const IndexPro = () => {
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                   <h2 className="text-3xl font-bold">
-                    Estatísticas e Gráficos
+                    {tabContent.stats.title}
                   </h2>
                   <p className="text-muted-foreground">
-                    Acompanhe seu progresso mensal
+                    {tabContent.stats.description}
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <Badge variant="outline" className="gap-2">
-                    <Calendar className="h-3 w-3" />
-                    {new Date().toLocaleDateString("pt-BR", {
-                      month: "long",
-                      year: "numeric",
-                    })}
-                  </Badge>
+                  {dateBadge}
                 </div>
               </div>
 
@@ -498,61 +667,45 @@ const IndexPro = () => {
               />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <TrendingUp className="h-5 w-5 text-green-600" />
-                      Tendência da Semana
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground mb-4">
-                      Seu progresso está{" "}
-                      {Math.random() > 0.5 ? "melhorando" : "estável"} esta
-                      semana.
-                    </p>
-                    <div className="flex gap-2">
-                      <Badge
-                        variant="outline"
-                        className="bg-green-50 text-green-700"
-                      >
-                        +5% proteína
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className="bg-blue-50 text-blue-700"
-                      >
-                        +2% consistência
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Target className="h-5 w-5 text-purple-600" />
-                      Próximas Metas
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground mb-4">
-                      Mantenha a consistência para alcançar suas metas.
-                    </p>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">
-                          Dias consecutivos na meta:
-                        </span>
-                        <Badge>3</Badge>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Meta do mês:</span>
-                        <Badge variant="secondary">22/30 dias</Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                {statsCards.map((card, index) => (
+                  <Card key={index}>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <card.icon className={`h-5 w-5 ${card.iconColor}`} />
+                        {card.title}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground mb-4">
+                        {card.description}
+                      </p>
+                      {card.badges ? (
+                        <div className="flex gap-2">
+                          {card.badges.map((badge, badgeIndex) => (
+                            <Badge
+                              key={badgeIndex}
+                              variant="outline"
+                              className={badge.className}
+                            >
+                              {badge.text}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {card.items?.map((item, itemIndex) => (
+                            <div key={itemIndex} className="flex justify-between items-center">
+                              <span className="text-sm">{item.label}</span>
+                              <Badge variant={item.badgeVariant}>
+                                {item.value}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </div>
           </TabsContent>
@@ -567,77 +720,17 @@ const IndexPro = () => {
           </TabsContent>
         </Tabs>
 
-        {/* Edit Meal Modal */}
-        {editingMeal && (
-          <EditMealDialogPro
-            meal={editingMeal}
-            isOpen={isEditOpen}
-            onOpenChange={(open) => {
-              setIsEditOpen(open);
-              if (!open) handleEditClose();
-            }}
-            onSave={handleSaveMeal}
-          />
-        )}
-
-        {/* Delete Confirmation Modal */}
-        <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Confirmar exclusão</DialogTitle>
-              <DialogDescription>
-                Tem certeza que deseja excluir esta refeição? Esta ação não pode
-                ser desfeita.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
-                Cancelar
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDeleteConfirm}
-                className="gap-2"
-              >
-                <Trash2 className="h-4 w-4" />
-                Excluir
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Manage Plans Modal */}
-        <ManagePlansDialog
-          isOpen={managePlansOpen}
-          onOpenChange={setManagePlansOpen}
-          plans={plans}
-          selectedPlanId={selectedPlanId}
-          onSelectPlan={selectPlan}
-          onCreatePlan={createNewPlan}
-          onUpdatePlan={updatePlan}
-          onDeletePlan={deletePlan}
-          onDuplicatePlan={duplicatePlan}
-        />
+        {/* Modais e Dialogs */}
+        {editMealDialog}
+        {deleteDialog}
+        {managePlansDialog}
 
         {/* Mobile Navigation */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background/70 backdrop-blur-lg border-t px-4 py-2">
           <div className="flex justify-around">
-            {navItems.map(({ icon: Icon, value }) => (
-              <Button
-                key={value}
-                variant="ghost"
-                size="icon"
-                onClick={() => setActiveTab(value)}
-                className={
-                  activeTab === value ? "text-primary" : "text-muted-foreground"
-                }
-              >
-                <Icon className="h-5 w-5" />
-              </Button>
-            ))}
+            {mobileNavButtons}
           </div>
         </nav>
-
 
         <PWAInstallPrompt />
       </main>

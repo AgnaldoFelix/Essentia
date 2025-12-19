@@ -1,5 +1,4 @@
-// components/DashboardStatsPro.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Card,
   CardHeader,
@@ -71,17 +70,14 @@ export const DashboardStatsPro = ({
   onMedalEarned,
 }: DashboardStatsProProps) => {
   // SEMPRE usar as metas do plano selecionado - ESSENCIAL!
-  const proteinGoal = selectedPlan?.proteinGoal || 150;
-  const caloriesGoal = selectedPlan?.caloriesGoal || 2000;
+  const proteinGoal = useMemo(() => selectedPlan?.proteinGoal || 150, [selectedPlan]);
+  const caloriesGoal = useMemo(() => selectedPlan?.caloriesGoal || 2000, [selectedPlan]);
 
-  const proteinPercentage = Math.min((currentProtein / proteinGoal) * 100, 100);
-  const caloriesPercentage = Math.min(
-    (currentCalories / caloriesGoal) * 100,
-    100
-  );
+  const proteinPercentage = useMemo(() => Math.min((currentProtein / proteinGoal) * 100, 100), [currentProtein, proteinGoal]);
+  const caloriesPercentage = useMemo(() => Math.min((currentCalories / caloriesGoal) * 100, 100), [currentCalories, caloriesGoal]);
 
-  const proteinRemaining = Math.max(proteinGoal - currentProtein, 0);
-  const caloriesRemaining = Math.max(caloriesGoal - currentCalories, 0);
+  const proteinRemaining = useMemo(() => Math.max(proteinGoal - currentProtein, 0), [proteinGoal, currentProtein]);
+  const caloriesRemaining = useMemo(() => Math.max(caloriesGoal - currentCalories, 0), [caloriesGoal, currentCalories]);
 
   const {
     isOpen: isMedalOpen,
@@ -111,25 +107,20 @@ export const DashboardStatsPro = ({
   } = useNotifications();
 
   // Ordenar refeições por horário
-  const sortedMeals = [...meals].sort((a, b) => {
-    const timeA = new Date(`1970/01/01 ${a.time}`).getTime();
-    const timeB = new Date(`1970/01/01 ${b.time}`).getTime();
-    return timeA - timeB;
-  });
+  const sortedMeals = useMemo(() => {
+    return [...meals].sort((a, b) => {
+      const timeA = new Date(`1970/01/01 ${a.time}`).getTime();
+      const timeB = new Date(`1970/01/01 ${b.time}`).getTime();
+      return timeA - timeB;
+    });
+  }, [meals]);
 
   // Efeito para agendar notificações quando as refeições ou o plano mudam
   useEffect(() => {
     if (notificationsInitialized && notificationsEnabled && notificationPermission === "granted") {
       scheduleMealNotifications(meals, selectedPlan?.name || "Plano Atual");
     }
-  }, [
-    meals,
-    selectedPlan,
-    notificationsInitialized,
-    notificationsEnabled,
-    notificationPermission,
-    scheduleMealNotifications,
-  ]);
+  }, [meals, selectedPlan, notificationsInitialized, notificationsEnabled, notificationPermission, scheduleMealNotifications]);
 
   // Efeito para mostrar o banner de permissão
   useEffect(() => {
@@ -139,7 +130,7 @@ export const DashboardStatsPro = ({
   }, [notificationsInitialized, notificationsEnabled, notificationPermission]);
 
   // CORREÇÃO: Verificar e mostrar medalhas
-  useEffect(() => {
+  const checkMedals = useCallback(() => {
     const today = new Date().toISOString().split("T")[0];
 
     // Verificar medalha de proteína
@@ -201,23 +192,21 @@ export const DashboardStatsPro = ({
         }
       }
     }
-  }, [
-    proteinPercentage,
-    caloriesPercentage,
-    onMedalEarned,
-    onMedalOpen,
-    shownMedals,
-  ]);
+  }, [proteinPercentage, caloriesPercentage, onMedalEarned, onMedalOpen, shownMedals]);
+
+  useEffect(() => {
+    checkMedals();
+  }, [checkMedals]);
 
   // Função para lidar com a ativação de notificações
-  const handleEnableNotifications = async () => {
+  const handleEnableNotifications = useCallback(async () => {
     const success = await toggleNotificationSetting(true);
     if (success) {
       setShowPermissionBanner(false);
     }
-  };
+  }, [toggleNotificationSetting]);
 
-  const handleTestNotification = async () => {
+  const handleTestNotification = useCallback(async () => {
     console.log('🔔 Botão de teste clicado');
     
     if (meals.length === 0) {
@@ -236,8 +225,6 @@ export const DashboardStatsPro = ({
       
       if (success) {
         console.log('🎉 Teste de notificação bem-sucedido!');
-        // Opcional: mostrar mensagem de sucesso
-        // alert('✅ Notificação de teste enviada com sucesso!');
       } else {
         console.log('❌ Teste de notificação falhou');
         alert('Por favor, permita notificações para receber lembretes de refeições! 🔔');
@@ -246,16 +233,16 @@ export const DashboardStatsPro = ({
       console.error('💥 Erro inesperado no teste:', error);
       alert('Erro ao testar notificação. Verifique o console para detalhes.');
     }
-  };
+  }, [meals, notificationsEnabled, notificationsSupported, notificationPermission, notificationsInitialized, sendTestNotification]);
 
-  const getProgressColor = (percentage: number) => {
+  const getProgressColor = useCallback((percentage: number) => {
     if (percentage >= 100) return "success";
     if (percentage >= 75) return "primary";
     if (percentage >= 50) return "warning";
     return "default";
-  };
+  }, []);
 
-  const getMedalForPercentage = (percentage: number) => {
+  const getMedalForPercentage = useCallback((percentage: number) => {
     const medal = MedalSystem.calculateMedal(percentage);
     if (!medal.type) return null;
 
@@ -270,10 +257,10 @@ export const DashboardStatsPro = ({
         </span>
       </Tooltip>
     );
-  };
+  }, []);
 
   // Modal de configuração de notificações
-  const NotificationsModal = () => (
+  const NotificationsModal = useMemo(() => (
     <Modal
       isOpen={isNotificationsOpen}
       onClose={onNotificationsClose}
@@ -486,9 +473,9 @@ export const DashboardStatsPro = ({
         </ModalFooter>
       </ModalContent>
     </Modal>
-  );
+  ), [isNotificationsOpen, notificationsSupported, notificationsEnabled, notificationPermission, toggleNotificationSetting, requestNotificationPermission, handleTestNotification, meals.length, sortedMeals, onNotificationsClose]);
 
-  const MedalModal = () => (
+  const MedalModal = useMemo(() => (
     <Modal
       isOpen={isMedalOpen}
       onClose={onMedalClose}
@@ -551,7 +538,125 @@ export const DashboardStatsPro = ({
         </ModalFooter>
       </ModalContent>
     </Modal>
+  ), [isMedalOpen, currentMedal, onMedalClose]);
+
+  // Comunidade de usuários online
+  const { onlineUsers } = useOnlineUsers();
+  const onlineUsersCount = useMemo(() => 
+    onlineUsers.filter(user => user.isOnline && user.profileEnabled).length, 
+    [onlineUsers]
   );
+
+  // Cabeçalho com medalhas memoizado
+  const proteinMedalIcon = useMemo(() => getMedalForPercentage(proteinPercentage), [proteinPercentage, getMedalForPercentage]);
+  const caloriesMedalIcon = useMemo(() => getMedalForPercentage(caloriesPercentage), [caloriesPercentage, getMedalForPercentage]);
+
+  // Totais do dia memoizados
+  const totalRow = useMemo(() => (
+    <TableRow className="bg-default-100 border-t-2 border-default-300">
+      <TableCell colSpan={3} className="text-right font-bold py-4">
+        <div className="flex items-center justify-end gap-2">
+          <span>Total do Dia</span>
+          <Progress
+            size="sm"
+            value={proteinPercentage}
+            className="max-w-24"
+            color="primary"
+          />
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex justify-center">
+          <Chip
+            color="primary"
+            variant="solid"
+            startContent={<span className="text-xs">📊</span>}
+            className="font-bold shadow-md"
+          >
+            {currentProtein}g
+          </Chip>
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex justify-center">
+          <Chip
+            color="warning"
+            variant="solid"
+            startContent={<span className="text-xs">📊</span>}
+            className="font-bold shadow-md"
+          >
+            {currentCalories}
+          </Chip>
+        </div>
+      </TableCell>
+    </TableRow>
+  ), [proteinPercentage, currentProtein, currentCalories]);
+
+  // Footer dos cards memoizado
+  const proteinFooterMessage = useMemo(() => {
+    if (proteinPercentage >= 100) return "Excelente! Meta superada!";
+    if (proteinPercentage >= 90) return "Incrível! Quase lá!";
+    if (proteinPercentage >= 75) return "Bom trabalho! Continue assim!";
+    return null;
+  }, [proteinPercentage]);
+
+  const caloriesFooterMessage = useMemo(() => {
+    if (caloriesPercentage >= 100) return "Excelente! Meta superada!";
+    if (caloriesPercentage >= 90) return "Incrível! Quase lá!";
+    if (caloriesPercentage >= 75) return "Bom trabalho! Continue assim!";
+    return null;
+  }, [caloriesPercentage]);
+
+  // Total do dia mobile memoizado
+  const mobileTotalSection = useMemo(() => (
+    <div className="bg-default-100 rounded-xl p-4 border border-default-200 mt-4">
+      <div className="flex justify-between items-center mb-3">
+        <span className="font-bold text-default-800">Total do Dia</span>
+        <div className="flex gap-2">
+          <Chip
+            color="primary"
+            variant="solid"
+            size="sm"
+            startContent={<span className="text-xs">📊</span>}
+            className="font-bold"
+          >
+            {currentProtein}g
+          </Chip>
+          <Chip
+            color="warning"
+            variant="solid"
+            size="sm"
+            startContent={<span className="text-xs">📊</span>}
+            className="font-bold"
+          >
+            {currentCalories}
+          </Chip>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <div className="flex justify-between items-center text-sm">
+          <span className="text-default-600">Progresso de Proteína</span>
+          <span className="font-medium">{currentProtein}/{proteinGoal}g</span>
+        </div>
+        <Progress
+          size="sm"
+          value={proteinPercentage}
+          color={getProgressColor(proteinPercentage)}
+          className="w-full"
+        />
+        <div className="flex justify-between items-center text-sm">
+          <span className="text-default-600">Progresso de Calorias</span>
+          <span className="font-medium">{currentCalories}/{caloriesGoal}</span>
+        </div>
+        <Progress
+          size="sm"
+          value={caloriesPercentage}
+          color={getProgressColor(caloriesPercentage)}
+          className="w-full"
+        />
+      </div>
+    </div>
+  ), [currentProtein, proteinGoal, proteinPercentage, currentCalories, caloriesGoal, caloriesPercentage, getProgressColor]);
 
   return (
     <>
@@ -568,11 +673,8 @@ export const DashboardStatsPro = ({
           >
             Lembretes
           </Button>
-
-          
-        <PWAInstallButton />
+          <PWAInstallButton />
         </div>
-
 
         {/* Conteúdo das Tabs */}
         <Tabs aria-label="Metas Nutricionais" className="relative">
@@ -582,7 +684,7 @@ export const DashboardStatsPro = ({
               <div className="flex items-center gap-2">
                 <Beef className="h-4 w-4" />
                 <span>Proteína</span>
-                {getMedalForPercentage(proteinPercentage)}
+                {proteinMedalIcon}
               </div>
             }
           >
@@ -644,21 +746,15 @@ export const DashboardStatsPro = ({
                     <p className="text-small text-default-500">
                       {proteinPercentage.toFixed(1)}% da meta diária
                     </p>
-                    {getMedalForPercentage(proteinPercentage)}
+                    {proteinMedalIcon}
                   </div>
                 </div>
               </CardBody>
-              {proteinPercentage >= 75 && (
+              {proteinFooterMessage && (
                 <CardFooter className="bg-success-50 border-t border-success-200">
                   <div className="flex items-center gap-2 text-success-700">
                     <Star className="h-4 w-4" />
-                    <span className="text-sm font-medium">
-                      {proteinPercentage >= 100
-                        ? "Excelente! Meta superada!"
-                        : proteinPercentage >= 90
-                        ? "Incrível! Quase lá!"
-                        : "Bom trabalho! Continue assim!"}
-                    </span>
+                    <span className="text-sm font-medium">{proteinFooterMessage}</span>
                   </div>
                 </CardFooter>
               )}
@@ -671,7 +767,7 @@ export const DashboardStatsPro = ({
               <div className="flex items-center gap-2">
                 <Flame className="h-4 w-4" />
                 <span>Calorias</span>
-                {getMedalForPercentage(caloriesPercentage)}
+                {caloriesMedalIcon}
               </div>
             }
           >
@@ -735,43 +831,37 @@ export const DashboardStatsPro = ({
                     <p className="text-small text-default-500">
                       {caloriesPercentage.toFixed(1)}% da meta diária
                     </p>
-                    {getMedalForPercentage(caloriesPercentage)}
+                    {caloriesMedalIcon}
                   </div>
                 </div>
               </CardBody>
-              {caloriesPercentage >= 75 && (
+              {caloriesFooterMessage && (
                 <CardFooter className="bg-success-50 border-t border-success-200">
                   <div className="flex items-center gap-2 text-success-700">
                     <Star className="h-4 w-4" />
-                    <span className="text-sm font-medium">
-                      {caloriesPercentage >= 100
-                        ? "Excelente! Meta superada!"
-                        : caloriesPercentage >= 90
-                        ? "Incrível! Quase lá!"
-                        : "Bom trabalho! Continue assim!"}
-                    </span>
+                    <span className="text-sm font-medium">{caloriesFooterMessage}</span>
                   </div>
                 </CardFooter>
               )}
             </Card>
           </Tab>
 
-<Tab
-  key="comunidade"
-  title={
-    <div className="flex items-center gap-2">
-      <MessageCircle className="h-4 w-4" />
-      <span>Comunidade</span>
-{useOnlineUsers().onlineUsers.filter(user => user.isOnline && user.profileEnabled).length > 0 && (
-  <Chip color="primary" variant="flat" size="sm">
-    {useOnlineUsers().onlineUsers.filter(user => user.isOnline && user.profileEnabled).length}
-  </Chip>
-)}
-    </div>
-  }
->
-  <ChatRoom />
-</Tab>
+          {/* <Tab
+            key="comunidade"
+            title={
+              <div className="flex items-center gap-2">
+                <MessageCircle className="h-4 w-4" />
+                <span>Comunidade</span>
+                {onlineUsersCount > 0 && (
+                  <Chip color="primary" variant="flat" size="sm">
+                    {onlineUsersCount}
+                  </Chip>
+                )}
+              </div>
+            }
+          >
+            <ChatRoom />
+          </Tab> */}
 
           <Tab
             key="refeicoes"
@@ -839,7 +929,7 @@ export const DashboardStatsPro = ({
                     </div>
                   </div>
 
- {/* Table - Desktop */}
+                  {/* Table - Desktop */}
                   <div className="hidden md:block">
                     <Table
                       aria-label="Plano alimentar diário"
@@ -879,9 +969,7 @@ export const DashboardStatsPro = ({
                                 <Chip
                                   color="primary"
                                   variant="flat"
-                                  startContent={
-                                    <span className="text-xs">🎯</span>
-                                  }
+                                  startContent={<span className="text-xs">🎯</span>}
                                 >
                                   Meta: {proteinGoal}g
                                 </Chip>
@@ -892,9 +980,7 @@ export const DashboardStatsPro = ({
                                 <Chip
                                   color="warning"
                                   variant="flat"
-                                  startContent={
-                                    <span className="text-xs">🎯</span>
-                                  }
+                                  startContent={<span className="text-xs">🎯</span>}
                                 >
                                   Meta: {caloriesGoal} kcal
                                 </Chip>
@@ -1022,57 +1108,12 @@ export const DashboardStatsPro = ({
                                 </div>
                               </TableCell>
                             </TableRow>
-                            ))
-                            <TableRow className="bg-default-100 border-t-2 border-default-300">
-                              <TableCell
-                                colSpan={3}
-                                className="text-right font-bold py-4"
-                              >
-                                <div className="flex items-center justify-end gap-2">
-                                  <span>Total do Dia</span>
-                                  <Progress
-                                    size="sm"
-                                    value={proteinPercentage}
-                                    className="max-w-24"
-                                    color="primary"
-                                  />
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex justify-center">
-                                  <Chip
-                                    color="primary"
-                                    variant="solid"
-                                    startContent={
-                                      <span className="text-xs">📊</span>
-                                    }
-                                    className="font-bold shadow-md"
-                                  >
-                                    {currentProtein}g
-                                  </Chip>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex justify-center">
-                                  <Chip
-                                    color="warning"
-                                    variant="solid"
-                                    startContent={
-                                      <span className="text-xs">📊</span>
-                                    }
-                                    className="font-bold shadow-md"
-                                  >
-                                    {currentCalories}
-                                  </Chip>
-                                </div>
-                              </TableCell>
-                            </TableRow>
+                            {index === sortedMeals.length - 1 && totalRow}
                           </React.Fragment>
                         ))}
                       </TableBody>
                     </Table>
                   </div>
-
 
                   {/* Mobile Cards */}
                   <div className="block md:hidden space-y-3 p-4 bg-white rounded-b-2xl shadow-lg border border-t-0 border-default-200">
@@ -1181,69 +1222,7 @@ export const DashboardStatsPro = ({
                             </div>
                           </div>
                         ))}
-
-                        {/* Total do Dia - Mobile */}
-                        <div className="bg-default-100 rounded-xl p-4 border border-default-200 mt-4">
-                          <div className="flex justify-between items-center mb-3">
-                            <span className="font-bold text-default-800">
-                              Total do Dia
-                            </span>
-                            <div className="flex gap-2">
-                              <Chip
-                                color="primary"
-                                variant="solid"
-                                size="sm"
-                                startContent={
-                                  <span className="text-xs">📊</span>
-                                }
-                                className="font-bold"
-                              >
-                                {currentProtein}g
-                              </Chip>
-                              <Chip
-                                color="warning"
-                                variant="solid"
-                                size="sm"
-                                startContent={
-                                  <span className="text-xs">📊</span>
-                                }
-                                className="font-bold"
-                              >
-                                {currentCalories}
-                              </Chip>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <div className="flex justify-between items-center text-sm">
-                              <span className="text-default-600">
-                                Progresso de Proteína
-                              </span>
-                              <span className="font-medium">
-                                {currentProtein}/{proteinGoal}g
-                              </span>
-                            </div>
-                            <Progress
-                              size="sm"
-                              value={proteinPercentage}
-                              color={getProgressColor(proteinPercentage)}
-                              className="w-full"
-                            />
-                            <div className="flex justify-between items-center text-sm">
-                              <span className="text-default-600">
-                                Progresso de Calorias
-                              </span>
-                              <span className="font-medium">
-                                {currentCalories}/{caloriesGoal}
-                              </span>
-                            </div>
-                            <Progress
-                              size="sm"
-                              value={caloriesPercentage}
-                              color={getProgressColor(caloriesPercentage)}
-                              className="w-full"
-                            />
-                          </div>
-                        </div>
+                        {mobileTotalSection}
                       </>
                     )}
                   </div>
@@ -1254,10 +1233,10 @@ export const DashboardStatsPro = ({
         </Tabs>
       </div>
 
-       <PWAInstallBanner />
+      <PWAInstallBanner />
 
-      <MedalModal />
-      <NotificationsModal />
+      {MedalModal}
+      {NotificationsModal}
 
       {showPermissionBanner && (
         <NotificationPermissionBanner

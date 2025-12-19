@@ -1,5 +1,5 @@
 // components/WaterTracker.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Card,
   CardHeader,
@@ -74,8 +74,11 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ onMedalEarned }) => 
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
   const { isOpen: isAlarmsOpen, onOpen: onAlarmsOpen, onClose: onAlarmsClose } = useDisclosure();
 
-  // Calcular porcentagem
-  const waterPercentage = Math.min((waterConsumed / waterGoal) * 100, 100);
+  // Calcular porcentagem com useMemo
+  const waterPercentage = useMemo(() => 
+    Math.min((waterConsumed / waterGoal) * 100, 100), 
+    [waterConsumed, waterGoal]
+  );
 
   // Efeito para mostrar o banner de permissão
   useEffect(() => {
@@ -119,28 +122,28 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ onMedalEarned }) => 
   }, [waterPercentage, onMedalEarned, onMedalOpen, shownMedals]);
 
   // Função para lidar com a ativação de notificações
-  const handleEnableNotifications = async () => {
+  const handleEnableNotifications = useCallback(async () => {
     const success = await toggleNotificationSetting(true);
     if (success) {
       setShowPermissionBanner(false);
     }
-  };
+  }, [toggleNotificationSetting]);
 
   // Funções de água com animação
-  const addWater = (amount: number) => {
+  const addWater = useCallback((amount: number) => {
     setIsAnimating(true);
     setWaterConsumed(prev => prev + amount);
     setTimeout(() => setIsAnimating(false), 600);
-  };
+  }, []);
 
-  const removeWater = (amount: number) => {
+  const removeWater = useCallback((amount: number) => {
     setIsAnimating(true);
     setWaterConsumed(prev => Math.max(0, prev - amount));
     setTimeout(() => setIsAnimating(false), 600);
-  };
+  }, []);
 
   // Funções de alarme
-  const addAlarm = () => {
+  const addAlarm = useCallback(() => {
     if (newAlarmTime) {
       const newAlarm: WaterAlarm = {
         id: `alarm-${Date.now()}`,
@@ -151,36 +154,36 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ onMedalEarned }) => 
       setAlarms(prev => [...prev, newAlarm]);
       setNewAlarmTime('08:00');
     }
-  };
+  }, [newAlarmTime]);
 
-  const removeAlarm = (id: string) => {
+  const removeAlarm = useCallback((id: string) => {
     setAlarms(prev => prev.filter(alarm => alarm.id !== id));
-  };
+  }, []);
 
-  const toggleAlarm = (id: string) => {
+  const toggleAlarm = useCallback((id: string) => {
     setAlarms(prev => prev.map(alarm => 
       alarm.id === id ? { ...alarm, enabled: !alarm.enabled } : alarm
     ));
-  };
+  }, []);
 
   // Função para testar notificações atualizada
-  const handleTestNotification = async () => {
+  const handleTestNotification = useCallback(async () => {
     const success = await sendTestNotification();
     if (!success) {
       alert('Por favor, permita notificações para receber lembretes de água! 🔔');
     }
-  };
+  }, [sendTestNotification]);
 
-  // Função para obter a cor da barra de progresso
-  const getProgressColor = (percentage: number) => {
-    if (percentage >= 100) return 'success';
-    if (percentage >= 75) return 'primary';
-    if (percentage >= 50) return 'warning';
+  // Função para obter a cor da barra de progresso com useMemo
+  const progressColor = useMemo(() => {
+    if (waterPercentage >= 100) return 'success';
+    if (waterPercentage >= 75) return 'primary';
+    if (waterPercentage >= 50) return 'warning';
     return 'default';
-  };
+  }, [waterPercentage]);
 
-  // Função para obter a medalha atual
-  const getCurrentMedal = () => {
+  // Medalha atual memoizada
+  const currentMedalIcon = useMemo(() => {
     const medal = MedalSystem.calculateMedal(waterPercentage);
     if (!medal.type) return null;
     
@@ -189,10 +192,97 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ onMedalEarned }) => 
         {MedalSystem.getMedalIcon(medal.type)}
       </span>
     );
-  };
+  }, [waterPercentage]);
+
+  // Estatísticas memoizadas
+  const waterStats = useMemo(() => ({
+    consumed: waterConsumed,
+    goal: waterGoal,
+    remaining: Math.max(0, waterGoal - waterConsumed),
+    percentage: waterPercentage.toFixed(1)
+  }), [waterConsumed, waterGoal, waterPercentage]);
+
+  // Mensagens motivacionais memoizadas
+  const motivationalMessage = useMemo(() => {
+    if (waterPercentage < 50) {
+      return {
+        text: "💧 Vamos começar! Cada gota conta! 🌟",
+        className: "text-center p-3 bg-yellow-50 rounded-xl border border-yellow-200 animate-pulse"
+      };
+    } else if (waterPercentage >= 50 && waterPercentage < 100) {
+      return {
+        text: "🌊 Você está indo bem! Continue assim! 💪",
+        className: "text-center p-3 bg-blue-50 rounded-xl border border-blue-200"
+      };
+    } else {
+      return {
+        text: "🎉 Parabéns! Você atingiu a meta hoje! 🌈",
+        className: "text-center p-3 bg-green-50 rounded-xl border border-green-200 animate-bounce"
+      };
+    }
+  }, [waterPercentage]);
+
+  // Botões de ação memoizados
+  const actionButtons = useMemo(() => [
+    {
+      label: '+200ml',
+      amount: 200,
+      color: 'primary',
+      gradient: 'from-blue-500 to-cyan-500',
+      icon: <Plus className="h-4 w-4" />
+    },
+    {
+      label: '+500ml',
+      amount: 500,
+      color: 'primary',
+      gradient: 'from-cyan-500 to-blue-500',
+      icon: <Plus className="h-4 w-4" />
+    },
+    {
+      label: '-200ml',
+      amount: 200,
+      color: 'warning',
+      variant: 'flat' as const,
+      icon: <Minus className="h-4 w-4" />
+    },
+    {
+      label: '-500ml',
+      amount: 500,
+      color: 'warning',
+      variant: 'flat' as const,
+      icon: <Minus className="h-4 w-4" />
+    }
+  ], []);
+
+  // Botões de configuração memoizados
+  const configButtons = useMemo(() => [
+    {
+      label: 'Editar Meta',
+      color: 'secondary' as const,
+      gradient: 'from-purple-500 to-pink-500',
+      icon: <Edit className="h-4 w-4" />,
+      onPress: onEditOpen
+    },
+    {
+      label: 'Lembretes',
+      color: 'warning' as const,
+      gradient: 'from-orange-500 to-yellow-500',
+      icon: <Bell className="h-4 w-4" />,
+      onPress: onAlarmsOpen
+    }
+  ], [onEditOpen, onAlarmsOpen]);
+
+  // Decorações do rodapé memoizadas
+  const footerDecorations = useMemo(() => [
+    { emoji: '🐟', animation: 'animate-bounce' },
+    { emoji: '💦', animation: 'animate-float' },
+    { emoji: '🌊', animation: 'animate-bounce', delay: '0.3s' },
+    { emoji: '💧', animation: 'animate-float', delay: '0.6s' },
+    { emoji: '🐠', animation: 'animate-bounce', delay: '0.9s' }
+  ], []);
 
   // Modal de medalha
-  const MedalModal = () => (
+  const MedalModal = useMemo(() => (
     <Modal 
       isOpen={isMedalOpen} 
       onClose={onMedalClose}
@@ -215,9 +305,15 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ onMedalEarned }) => 
         </ModalHeader>
         <ModalBody className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="text-4xl animate-bounce">💧</div>
-            <div className="text-4xl animate-bounce" style={{ animationDelay: '0.2s' }}>🌟</div>
-            <div className="text-4xl animate-bounce" style={{ animationDelay: '0.4s' }}>💧</div>
+            {['💧', '🌟', '💧'].map((emoji, index) => (
+              <div 
+                key={index} 
+                className="text-4xl animate-bounce" 
+                style={{ animationDelay: `${index * 0.2}s` }}
+              >
+                {emoji}
+              </div>
+            ))}
           </div>
           <p className="text-lg font-semibold text-default-700">
             {currentMedal?.message}
@@ -245,10 +341,10 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ onMedalEarned }) => 
         </ModalFooter>
       </ModalContent>
     </Modal>
-  );
+  ), [isMedalOpen, currentMedal, onMedalClose]);
 
   // Modal de edição de meta
-  const EditModal = () => (
+  const EditModal = useMemo(() => (
     <Modal isOpen={isEditOpen} onClose={onEditClose} size="md">
       <ModalContent>
         <ModalHeader className="flex items-center gap-2">
@@ -302,10 +398,10 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ onMedalEarned }) => 
         </ModalFooter>
       </ModalContent>
     </Modal>
-  );
+  ), [isEditOpen, waterGoal, onEditClose]);
 
-  // Modal de alarmes atualizado
-  const AlarmsModal = () => (
+  // Modal de alarmes
+  const AlarmsModal = useMemo(() => (
     <Modal isOpen={isAlarmsOpen} onClose={onAlarmsClose} size="lg">
       <ModalContent>
         <ModalHeader className="flex items-center gap-2">
@@ -529,44 +625,62 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ onMedalEarned }) => 
         </ModalFooter>
       </ModalContent>
     </Modal>
-  );
+  ), [
+    isAlarmsOpen, 
+    alarms, 
+    newAlarmTime, 
+    notificationsSupported, 
+    notificationsEnabled, 
+    notificationPermission, 
+    toggleNotificationSetting, 
+    requestNotificationPermission, 
+    handleTestNotification, 
+    toggleAlarm, 
+    removeAlarm, 
+    addAlarm, 
+    onAlarmsClose
+  ]);
 
-  // Banner de permissão
-  const NotificationPermissionBanner = () => (
-    <div className="fixed bottom-4 left-4 right-4 z-50 max-w-md mx-auto">
-      <div className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl shadow-2xl p-4 text-white">
-        <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 mt-1">
-            <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
-              <Bell className="h-6 w-6" />
+  // Banner de permissão memoizado
+  const NotificationPermissionBanner = useMemo(() => {
+    if (!showPermissionBanner) return null;
+    
+    return (
+      <div className="fixed bottom-4 left-4 right-4 z-50 max-w-md mx-auto">
+        <div className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl shadow-2xl p-4 text-white">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 mt-1">
+              <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+                <Bell className="h-6 w-6" />
+              </div>
             </div>
-          </div>
-          <div className="flex-1">
-            <h3 className="font-bold text-lg mb-1">
-              Ativar Lembretes de Água
-            </h3>
-            <p className="text-sm text-white/90 mb-3">
-              Receba lembretes automáticos para beber água, mesmo com o app em segundo plano!
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={handleEnableNotifications}
-                className="flex-1 bg-white text-blue-600 font-semibold py-2 px-4 rounded-lg hover:bg-blue-50 transition-colors"
-              >
-                Ativar Agora
-              </button>
-              <button
-                onClick={() => setShowPermissionBanner(false)}
-                className="px-3 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors backdrop-blur-sm"
-              >
-                ✕
-              </button>
+            <div className="flex-1">
+              <h3 className="font-bold text-lg mb-1">
+                Ativar Lembretes de Água
+              </h3>
+              <p className="text-sm text-white/90 mb-3">
+                Receba lembretes automáticos para beber água, mesmo com o app em segundo plano!
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleEnableNotifications}
+                  className="flex-1 bg-white text-blue-600 font-semibold py-2 px-4 rounded-lg hover:bg-blue-50 transition-colors"
+                >
+                  Ativar Agora
+                </button>
+                <button
+                  onClick={() => setShowPermissionBanner(false)}
+                  className="px-3 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors backdrop-blur-sm"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }, [showPermissionBanner, handleEnableNotifications]);
 
   return (
     <>
@@ -605,16 +719,16 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ onMedalEarned }) => 
             <div className="flex justify-between items-center bg-white/80 rounded-2xl p-4 shadow-sm border border-blue-200">
               <div className="text-center flex-1">
                 <p className="text-2xl font-bold text-blue-700 bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                  {waterConsumed}ml
+                  {waterStats.consumed}ml
                 </p>
                 <p className="text-xs text-blue-600 font-medium">Bebidos</p>
               </div>
               <div className="text-center flex-1 border-x border-blue-200">
-                <p className="text-2xl font-bold text-cyan-700">{waterGoal}ml</p>
+                <p className="text-2xl font-bold text-cyan-700">{waterStats.goal}ml</p>
                 <p className="text-xs text-cyan-600 font-medium">Meta</p>
               </div>
               <div className="text-center flex-1">
-                <p className="text-2xl font-bold text-green-700">{Math.max(0, waterGoal - waterConsumed)}ml</p>
+                <p className="text-2xl font-bold text-green-700">{waterStats.remaining}ml</p>
                 <p className="text-xs text-green-600 font-medium">Faltam</p>
               </div>
             </div>
@@ -624,7 +738,7 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ onMedalEarned }) => 
               <Progress
                 aria-label="Progresso de água"
                 className="w-full"
-                color={getProgressColor(waterPercentage)}
+                color={progressColor}
                 showValueLabel={true}
                 size="lg"
                 value={waterPercentage}
@@ -636,97 +750,65 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ onMedalEarned }) => 
               />
               <div className="flex justify-between items-center">
                 <p className="text-sm text-blue-600 font-medium">
-                  {waterPercentage.toFixed(1)}% da meta
+                  {waterStats.percentage}% da meta
                 </p>
-                {getCurrentMedal()}
+                {currentMedalIcon}
               </div>
             </div>
           </div>
 
           {/* Botões de ação */}
           <div className="grid grid-cols-2 gap-3">
-            <Button 
-              color="primary" 
-              variant="shadow"
-              onPress={() => addWater(200)}
-              className="gap-2 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 shadow-lg hover:shadow-xl transition-all"
-              startContent={<Plus className="h-4 w-4" />}
-            >
-              +200ml
-            </Button>
-            <Button 
-              color="primary" 
-              variant="shadow"
-              onPress={() => addWater(500)}
-              className="gap-2 h-12 bg-gradient-to-r from-cyan-500 to-blue-500 shadow-lg hover:shadow-xl transition-all"
-              startContent={<Plus className="h-4 w-4" />}
-            >
-              +500ml
-            </Button>
+            {actionButtons.slice(0, 2).map((button, index) => (
+              <Button 
+                key={index}
+                color={button.color as any}
+                variant="shadow"
+                onPress={() => addWater(button.amount)}
+                className={`gap-2 h-12 bg-gradient-to-r ${button.gradient} shadow-lg hover:shadow-xl transition-all`}
+                startContent={button.icon}
+              >
+                {button.label}
+              </Button>
+            ))}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Button 
-              color="warning" 
-              variant="flat"
-              onPress={() => removeWater(200)}
-              className="gap-2 h-10 border border-orange-200"
-              startContent={<Minus className="h-4 w-4" />}
-            >
-              -200ml
-            </Button>
-            <Button 
-              color="warning" 
-              variant="flat"
-              onPress={() => removeWater(500)}
-              className="gap-2 h-10 border border-orange-200"
-              startContent={<Minus className="h-4 w-4" />}
-            >
-              -500ml
-            </Button>
+            {actionButtons.slice(2).map((button, index) => (
+              <Button 
+                key={index}
+                color={button.color as any}
+                variant={button.variant}
+                onPress={() => removeWater(button.amount)}
+                className="gap-2 h-10 border border-orange-200"
+                startContent={button.icon}
+              >
+                {button.label}
+              </Button>
+            ))}
           </div>
 
           {/* Botões de configuração */}
           <div className="grid grid-cols-2 gap-3">
-            <Button 
-              color="secondary" 
-              variant="solid" 
-              onPress={onEditOpen}
-              className="gap-2 h-12 bg-gradient-to-r from-purple-500 to-pink-500 shadow-lg"
-              startContent={<Edit className="h-4 w-4" />}
-            >
-              Editar Meta
-            </Button>
-            <Button 
-              color="warning" 
-              variant="solid" 
-              onPress={onAlarmsOpen}
-              className="gap-2 h-12 bg-gradient-to-r from-orange-500 to-yellow-500 shadow-lg"
-              startContent={<Bell className="h-4 w-4" />}
-            >
-              Lembretes
-            </Button>
+            {configButtons.map((button, index) => (
+              <Button 
+                key={index}
+                color={button.color}
+                variant="solid" 
+                onPress={button.onPress}
+                className={`gap-2 h-12 bg-gradient-to-r ${button.gradient} shadow-lg`}
+                startContent={button.icon}
+              >
+                {button.label}
+              </Button>
+            ))}
           </div>
 
           {/* Mensagem motivacional */}
-          {waterPercentage < 50 && (
-            <div className="text-center p-3 bg-yellow-50 rounded-xl border border-yellow-200 animate-pulse">
-              <p className="text-sm text-yellow-700 font-medium">
-                💧 Vamos começar! Cada gota conta! 🌟
-              </p>
-            </div>
-          )}
-          {waterPercentage >= 50 && waterPercentage < 100 && (
-            <div className="text-center p-3 bg-blue-50 rounded-xl border border-blue-200">
-              <p className="text-sm text-blue-700 font-medium">
-                🌊 Você está indo bem! Continue assim! 💪
-              </p>
-            </div>
-          )}
-          {waterPercentage >= 100 && (
-            <div className="text-center p-3 bg-green-50 rounded-xl border border-green-200 animate-bounce">
-              <p className="text-sm text-green-700 font-medium">
-                🎉 Parabéns! Você atingiu a meta hoje! 🌈
+          {waterPercentage > 0 && (
+            <div className={motivationalMessage.className}>
+              <p className="text-sm font-medium">
+                {motivationalMessage.text}
               </p>
             </div>
           )}
@@ -735,22 +817,26 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({ onMedalEarned }) => 
         {/* Rodapé com decorações */}
         <div className="p-3 bg-white/50 rounded-b-2xl border-t border-blue-200">
           <div className="flex justify-between items-center text-lg">
-            <span className="animate-bounce">🐟</span>
-            <span className="animate-float">💦</span>
-            <span className="animate-bounce" style={{ animationDelay: '0.3s' }}>🌊</span>
-            <span className="animate-float" style={{ animationDelay: '0.6s' }}>💧</span>
-            <span className="animate-bounce" style={{ animationDelay: '0.9s' }}>🐠</span>
+            {footerDecorations.map((decoration, index) => (
+              <span 
+                key={index}
+                className={decoration.animation}
+                style={decoration.delay ? { animationDelay: decoration.delay } : {}}
+              >
+                {decoration.emoji}
+              </span>
+            ))}
           </div>
         </div>
 
         {/* Modais */}
-        <MedalModal />
-        <EditModal />
-        <AlarmsModal />
+        {MedalModal}
+        {EditModal}
+        {AlarmsModal}
       </Card>
 
       {/* Banner de permissão */}
-      {showPermissionBanner && <NotificationPermissionBanner />}
+      {NotificationPermissionBanner}
     </>
   );
 };
