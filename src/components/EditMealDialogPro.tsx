@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -38,7 +38,6 @@ interface EditMealDialogProProps {
   onSave: (meal: Meal) => void;
 }
 
-// Interface para os dados nutricionais da IA
 interface NutritionalData {
   protein: number;
   calories: number;
@@ -52,6 +51,13 @@ const NUTRITION_API = import.meta.env.VITE_API_URL
 export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMealDialogProProps) => {
   const [editedMeal, setEditedMeal] = useState<Meal>(meal);
   const [autoCompleteLoading, setAutoCompleteLoading] = useState<string | null>(null);
+  const [newFoodId, setNewFoodId] = useState<string | null>(null);
+
+  // Reset editedMeal when meal prop changes
+  useEffect(() => {
+    setEditedMeal(meal);
+    setNewFoodId(null);
+  }, [meal]);
 
   // Função para calcular os totais baseado nos alimentos
   const calculateTotals = useCallback((foods: FoodItem[]) => {
@@ -63,6 +69,9 @@ export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMe
       calories: Math.round(totalCalories)
     };
   }, []);
+
+  // Memoizar os totais
+  const totals = useMemo(() => calculateTotals(editedMeal.foods), [editedMeal.foods, calculateTotals]);
 
   const fetchNutritionalData = useCallback(async (foodName: string, amount: string, unit: string): Promise<NutritionalData> => {
     if (!foodName.trim() || foodName === 'Novo alimento') {
@@ -138,7 +147,7 @@ export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMe
   }, []);
 
   // Função para auto-completar um alimento
-  const handleAutoComplete = async (foodId: string, foodName: string, amount: string, unit: string) => {
+  const handleAutoComplete = useCallback(async (foodId: string, foodName: string, amount: string, unit: string) => {
     setAutoCompleteLoading(foodId);
 
     try {
@@ -155,13 +164,9 @@ export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMe
             : food
         );
 
-        const totals = calculateTotals(updatedFoods);
-
         return {
           ...prev,
-          foods: updatedFoods,
-          protein: totals.protein,
-          calories: totals.calories
+          foods: updatedFoods
         };
       });
 
@@ -179,66 +184,58 @@ export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMe
     } finally {
       setAutoCompleteLoading(null);
     }
-  };
+  }, [fetchNutritionalData, toast]);
 
-  const handleAddFood = () => {
+  const handleAddFood = useCallback(() => {
+    const newFoodId = `food-${Date.now()}`;
     const newFood: FoodItem = {
-      id: `food-${Date.now()}`,
-      name: 'Novo alimento',
-      amount: '100',
+      id: newFoodId,
+      name: '',
+      amount: '',
       unit: 'g',
       protein: 0,
       calories: 0
     };
 
-    setEditedMeal(prev => {
-      const updatedFoods = [...prev.foods, newFood];
-      const totals = calculateTotals(updatedFoods);
+    setEditedMeal(prev => ({
+      ...prev,
+      foods: [newFood, ...prev.foods] // Adiciona no TOPO da lista
+    }));
+    
+    setNewFoodId(newFoodId);
+    
+    // Foca no input do novo alimento após um pequeno delay
+    setTimeout(() => {
+      const input = document.getElementById(`food-name-${newFoodId}`);
+      if (input) {
+        input.focus();
+      }
+    }, 100);
+  }, []);
 
-      return {
-        ...prev,
-        foods: updatedFoods,
-        protein: totals.protein,
-        calories: totals.calories
-      };
-    });
-  };
+  const handleRemoveFood = useCallback((foodId: string) => {
+    setEditedMeal(prev => ({
+      ...prev,
+      foods: prev.foods.filter(f => f.id !== foodId)
+    }));
+    if (foodId === newFoodId) {
+      setNewFoodId(null);
+    }
+  }, [newFoodId]);
 
-  const handleRemoveFood = (foodId: string) => {
-    setEditedMeal(prev => {
-      const updatedFoods = prev.foods.filter(f => f.id !== foodId);
-      const totals = calculateTotals(updatedFoods);
-
-      return {
-        ...prev,
-        foods: updatedFoods,
-        protein: totals.protein,
-        calories: totals.calories
-      };
-    });
-  };
-
-  const handleFoodChange = (foodId: string, field: keyof FoodItem, value: string | number) => {
-    setEditedMeal(prev => {
-      const updatedFoods = prev.foods.map(f => 
+  const handleFoodChange = useCallback((foodId: string, field: keyof FoodItem, value: string | number) => {
+    setEditedMeal(prev => ({
+      ...prev,
+      foods: prev.foods.map(f => 
         f.id === foodId ? { 
           ...f, 
           [field]: field === 'name' || field === 'amount' || field === 'unit' ? value : Number(value)
         } : f
-      );
+      )
+    }));
+  }, []);
 
-      const totals = calculateTotals(updatedFoods);
-
-      return {
-        ...prev,
-        foods: updatedFoods,
-        protein: totals.protein,
-        calories: totals.calories
-      };
-    });
-  };
-
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     if (!editedMeal.name.trim()) {
       toast({
         title: "Erro",
@@ -257,13 +254,64 @@ export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMe
       return;
     }
 
-    onSave(editedMeal);
+    // Atualizar totais antes de salvar
+    const mealWithTotals = {
+      ...editedMeal,
+      protein: totals.protein,
+      calories: totals.calories
+    };
+
+    onSave(mealWithTotals);
     toast({
       title: "Sucesso",
       description: "Refeição atualizada com sucesso!",
     });
     onOpenChange(false);
-  };
+  }, [editedMeal, totals, onSave, onOpenChange, toast]);
+
+  // Separar alimentos em: novos (vazios) e preenchidos
+  const [emptyFoods, filledFoods] = useMemo(() => {
+    const empty = editedMeal.foods.filter(food => !food.name.trim() || food.name === '');
+    const filled = editedMeal.foods.filter(food => food.name.trim() && food.name !== '');
+    return [empty, filled];
+  }, [editedMeal.foods]);
+
+  // Ordenar: novos vazios primeiro, depois preenchidos
+  const sortedFoods = useMemo(() => {
+    return [...emptyFoods, ...filledFoods];
+  }, [emptyFoods, filledFoods]);
+
+  // Calcular se há algum alimento vazio
+  const hasEmptyFood = useMemo(() => emptyFoods.length > 0, [emptyFoods]);
+
+  // Handler para emoji
+  const handleEmojiSelect = useCallback((emoji: EmojiData) => {
+    setEditedMeal(prev => ({ ...prev, emoji: emoji.native }));
+  }, []);
+
+  // Handler para mudança de nome da refeição
+  const handleMealNameChange = useCallback((value: string) => {
+    setEditedMeal(prev => ({ ...prev, name: value }));
+  }, []);
+
+  // Handler para mudança de horário
+  const handleTimeChange = useCallback((value: string) => {
+    setEditedMeal(prev => ({ ...prev, time: value }));
+  }, []);
+
+  // Handler para mudança de descrição
+  const handleDescriptionChange = useCallback((value: string) => {
+    setEditedMeal(prev => ({ ...prev, description: value }));
+  }, []);
+
+  // Atualizar totais quando foods mudam
+  useEffect(() => {
+    setEditedMeal(prev => ({
+      ...prev,
+      protein: totals.protein,
+      calories: totals.calories
+    }));
+  }, [totals]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -290,7 +338,7 @@ export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMe
               <Input
                 placeholder="Ex: Café da manhã proteico"
                 value={editedMeal.name}
-                onChange={(e) => setEditedMeal({ ...editedMeal, name: e.target.value })}
+                onChange={(e) => handleMealNameChange(e.target.value)}
                 className="h-12 border-slate-300 dark:border-slate-600 focus:border-[#1387ED] focus:ring-[#1387ED] rounded-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm"
               />
             </div>
@@ -311,9 +359,7 @@ export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMe
                 <PopoverContent className="w-full p-0 border-0 shadow-2xl rounded-xl overflow-hidden" align="start">
                   <Picker
                     data={data}
-                    onEmojiSelect={(emoji: EmojiData) => {
-                      setEditedMeal({ ...editedMeal, emoji: emoji.native });
-                    }}
+                    onEmojiSelect={handleEmojiSelect}
                     locale="pt"
                     previewPosition="none"
                     skinTonePosition="none"
@@ -334,7 +380,7 @@ export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMe
             <Input
               type="time"
               value={editedMeal.time}
-              onChange={(e) => setEditedMeal({ ...editedMeal, time: e.target.value })}
+              onChange={(e) => handleTimeChange(e.target.value)}
               className="h-12 border-slate-300 dark:border-slate-600 focus:border-[#1387ED] focus:ring-[#1387ED] rounded-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm"
             />
           </div>
@@ -347,7 +393,7 @@ export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMe
             <Textarea
               placeholder="Descreva o objetivo desta refeição..."
               value={editedMeal.description}
-              onChange={(e) => setEditedMeal({ ...editedMeal, description: e.target.value })}
+              onChange={(e) => handleDescriptionChange(e.target.value)}
               rows={3}
               className="border-slate-300 dark:border-slate-600 focus:border-[#1387ED] focus:ring-[#1387ED] rounded-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm resize-none"
             />
@@ -367,7 +413,9 @@ export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMe
                   </span>
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Digite o alimento e quantidade, selecione a unidade e clique em "Calcular com IA"
+                  {hasEmptyFood 
+                    ? "Preencha os alimentos abaixo ou adicione mais" 
+                    : "Digite o alimento e quantidade, selecione a unidade e clique em 'Calcular com IA'"}
                 </p>
               </div>
               <Button
@@ -383,8 +431,17 @@ export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMe
             </div>
 
             <div className="space-y-4">
-              {editedMeal.foods.map((food) => (
-                <div key={food.id} className="p-4 rounded-2xl border border-slate-300/50 dark:border-slate-600/50 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-200">
+              {sortedFoods.map((food) => (
+                <div key={food.id} className={`p-4 rounded-2xl border ${!food.name.trim() ? 'border-yellow-300/50 dark:border-yellow-500/50 bg-yellow-50/60 dark:bg-yellow-900/20' : 'border-slate-300/50 dark:border-slate-600/50 bg-white/60 dark:bg-slate-800/60'} backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-200`}>
+                  {!food.name.trim() && (
+                    <div className="mb-3 p-2 rounded-lg bg-yellow-100/80 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700">
+                      <p className="text-sm text-green-800 dark:text-green-200 flex items-center gap-1">
+                        <span className="text-lg">🆕</span>
+                        <span className="font-medium">Novo alimento - preencha os dados abaixo</span>
+                      </p>
+                    </div>
+                  )}
+                  
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3">
                     {/* Nome do alimento */}
                     <div className="lg:col-span-4">
@@ -392,6 +449,7 @@ export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMe
                         Nome do Alimento
                       </label>
                       <Input
+                        id={`food-name-${food.id}`}
                         placeholder="Ex: Frango grelhado, Arroz integral, etc."
                         value={food.name}
                         onChange={(e) => handleFoodChange(food.id, 'name', e.target.value)}
@@ -431,7 +489,7 @@ export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMe
                         variant="default"
                         size="sm"
                         onClick={() => handleAutoComplete(food.id, food.name, food.amount, food.unit || 'g')}
-                        disabled={autoCompleteLoading === food.id || !food.name.trim() || food.name === 'Novo alimento' || !food.amount || parseFloat(food.amount) <= 0}
+                        disabled={autoCompleteLoading === food.id || !food.name.trim() || !food.amount || parseFloat(food.amount) <= 0}
                         className="w-full gap-2 bg-gradient-to-r from-[#1387ED] to-[#61D8ED] hover:from-[#1178d4] hover:to-[#4fc8e0] text-white rounded-lg transition-all duration-200 shadow-md h-10"
                       >
                         {autoCompleteLoading === food.id ? (
@@ -481,33 +539,37 @@ export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMe
                   </div>
 
                   {/* Botão remover */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRemoveFood(food.id)}
-                    className="mt-3 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Remover
-                  </Button>
+                  <div className="flex justify-end mt-3">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveFood(food.id)}
+                      className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Remover
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
 
             {/* Totais */}
-            <div className="mt-6 p-5 rounded-2xl border border-slate-300/50 dark:border-slate-600/50 bg-gradient-to-r from-blue-50/50 to-emerald-50/50 dark:from-blue-900/20 dark:to-emerald-900/20 backdrop-blur-sm shadow-md">
-              <h4 className="font-bold text-lg mb-4 text-slate-800 dark:text-slate-100 text-center">Totais da Refeição</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="text-center p-4 rounded-xl bg-white/80 dark:bg-slate-800/80 shadow-sm border border-[#13ED7C]/20">
-                  <span className="text-sm text-slate-600 dark:text-slate-400 block mb-1">Proteína Total</span>
-                  <span className="text-2xl font-bold text-[#13ED7C]">{editedMeal.protein.toFixed(1)}g</span>
-                </div>
-                <div className="text-center p-4 rounded-xl bg-white/80 dark:bg-slate-800/80 shadow-sm border border-[#1AEF41]/20">
-                  <span className="text-sm text-slate-600 dark:text-slate-400 block mb-1">Calorias Totais</span>
-                  <span className="text-2xl font-bold text-[#1AEF41]">{editedMeal.calories} kcal</span>
+            {filledFoods.length > 0 && (
+              <div className="mt-6 p-5 rounded-2xl border border-slate-300/50 dark:border-slate-600/50 bg-gradient-to-r from-blue-50/50 to-emerald-50/50 dark:from-blue-900/20 dark:to-emerald-900/20 backdrop-blur-sm shadow-md">
+                <h4 className="font-bold text-lg mb-4 text-slate-800 dark:text-slate-100 text-center">Totais da Refeição</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="text-center p-4 rounded-xl bg-white/80 dark:bg-slate-800/80 shadow-sm border border-[#13ED7C]/20">
+                    <span className="text-sm text-slate-600 dark:text-slate-400 block mb-1">Proteína Total</span>
+                    <span className="text-2xl font-bold text-[#13ED7C]">{totals.protein.toFixed(1)}g</span>
+                  </div>
+                  <div className="text-center p-4 rounded-xl bg-white/80 dark:bg-slate-800/80 shadow-sm border border-[#1AEF41]/20">
+                    <span className="text-sm text-slate-600 dark:text-slate-400 block mb-1">Calorias Totais</span>
+                    <span className="text-2xl font-bold text-[#1AEF41]">{totals.calories} kcal</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
             
@@ -521,7 +583,8 @@ export const EditMealDialogPro = ({ meal, isOpen, onOpenChange, onSave }: EditMe
           </Button>
           <Button 
             onClick={handleSave}
-            className="flex-1 h-12 gap-2 bg-gradient-to-r from-[#13ED7C] to-[#1AEF41] hover:from-[#11d46f] hover:to-[#16d43a] text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+            disabled={hasEmptyFood || editedMeal.foods.length === 0}
+            className="flex-1 h-12 gap-2 bg-gradient-to-r from-[#13ED7C] to-[#1AEF41] hover:from-[#11d46f] hover:to-[#16d43a] text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="h-4 w-4" /> 
             Salvar Refeição
