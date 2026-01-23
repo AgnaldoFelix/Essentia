@@ -1,3 +1,5 @@
+![Essentia Banner](./public/banner.png)
+
 # Essentia — Seu acomphante nutricional
 
 ![Essentia — preview do projeto](./assets/essentia-screenshot.png)
