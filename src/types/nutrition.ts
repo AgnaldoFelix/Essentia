@@ -1,61 +1,61 @@
+// Tipos do domínio nutricional
+
+export type MacroKey = 'calories' | 'protein' | 'fat' | 'carbs';
+
+export interface Food {
+  name: string;
+  amount: string;   // ex.: "200 g"
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+}
+
 export interface Meal {
   id: string;
-  time: string;
-  name: string;
+  user_id: string;
+  data: string;     // YYYY-MM-DD
+  horario: string;  // HH:MM
+  nome: string;
   emoji: string;
-  foods: FoodItem[];
-  protein: number;
-  calories: number;
-  description: string;
+  alimentos: Food[];
+  calorias: number;
+  proteinas: number;
+  gorduras: number;
+  carboidratos: number;
+  imagem_url?: string | null;
+  ai_confianca?: number | null;
+  created_at?: string;
 }
 
-export interface FoodItem {
-  id: string;
-  name: string;
-  amount: string;
-  protein: number;
-  unit: string;
-  calories: number;
+export interface DailyRecord {
+  id?: string;
+  user_id: string;
+  data: string;
+  calorias: number;
+  proteinas: number;
+  gorduras: number;
+  carboidratos: number;
+  updated_at?: string;
 }
 
-export interface DailyPlan {
-  id: string;
-  name: string;
-  meals: Meal[];
-  totalProtein: number;
-  totalCalories: number;
-  proteinGoal: number;  // Adicione esta linha
-  caloriesGoal: number; // Adicione esta linha
+export interface Goals {
+  meta_calorias: number;
+  meta_proteinas: number;
+  meta_gorduras: number;
+  meta_carboidratos: number;
 }
 
-export interface MealLog {
-  id: string;
-  date: string;
-  mealId: string;
-  completed: boolean;
-  notes?: string;
-  totalProtein: number;
-  totalCalories: number;
+export interface AIAnalysisResult {
+  alimentos: Food[];
+  total: {
+    calorias: number;
+    proteinas: number;
+    gorduras: number;
+    carboidratos: number;
+  };
+  emoji: string;
+  nome_sugerido: string;
+  confianca: number; // 0-1
+  observacao?: string;
 }
-
-export interface UserProfile {
-  dailyProteinGoal: number;
-  dailyCaloriesGoal: number;
-  weight: number;
-  weightGoal: number;
-}
-
-export interface WeightEntry {
-  id: string;
-  date: string;
-  weight: number;
-}
-
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: number;
-}
-
-
