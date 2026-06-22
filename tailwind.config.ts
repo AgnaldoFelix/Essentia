@@ -1,25 +1,28 @@
 import type { Config } from "tailwindcss";
-import { nextui } from "@nextui-org/react";
+import { heroui } from "@heroui/react";
 
 export default {
   darkMode: ["class"],
   content: [
-    "./pages/**/*.{ts,tsx}", 
-    "./components/**/*.{ts,tsx}", 
-    "./app/**/*.{ts,tsx}", 
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
     "./src/**/*.{ts,tsx}",
-    "./node_modules/@nextui-org/theme/dist/**/*.{js,ts,jsx,tsx}"
+    "./node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}",
+    "./node_modules/@nextui-org/theme/dist/**/*.{js,ts,jsx,tsx}",
   ],
   prefix: "",
   theme: {
     container: {
       center: true,
-      padding: "2rem",
-      screens: {
-        "2xl": "1400px",
-      },
+      padding: "1rem",
+      screens: { "2xl": "1400px" },
     },
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', '"SF Mono"', 'ui-monospace', 'monospace'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -29,6 +32,7 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          glow: "hsl(var(--primary-glow))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -54,6 +58,23 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Macros
+        calories: {
+          DEFAULT: "hsl(var(--calories))",
+          foreground: "hsl(var(--calories-foreground))",
+        },
+        protein: {
+          DEFAULT: "hsl(var(--protein))",
+          foreground: "hsl(var(--protein-foreground))",
+        },
+        fat: {
+          DEFAULT: "hsl(var(--fat))",
+          foreground: "hsl(var(--fat-foreground))",
+        },
+        carbs: {
+          DEFAULT: "hsl(var(--carbs))",
+          foreground: "hsl(var(--carbs-foreground))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -67,26 +88,20 @@ export default {
       },
       borderRadius: {
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        md: "calc(var(--radius) - 4px)",
+        sm: "calc(var(--radius) - 8px)",
+        xl: "var(--radius-lg)",
+        "2xl": "var(--radius-xl)",
+      },
+      spacing: {
+        // base 4px (Tailwind já usa 4px). Aliases semânticos:
+        'gutter': '1rem',
+        'gutter-lg': '1.5rem',
+        'gutter-xl': '2rem',
       },
       keyframes: {
-        "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
-        },
-        "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
-        },
+        "accordion-down": { from: { height: "0" }, to: { height: "var(--radix-accordion-content-height)" } },
+        "accordion-up":   { from: { height: "var(--radix-accordion-content-height)" }, to: { height: "0" } },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -94,5 +109,33 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate"), nextui()],
+  plugins: [
+    require("tailwindcss-animate"),
+    heroui({
+      themes: {
+        light: {
+          colors: {
+            primary: {
+              DEFAULT: "#1FBFA8",
+              foreground: "#FFFFFF",
+            },
+            danger: { DEFAULT: "#FF6B6B" },
+            warning: { DEFAULT: "#FFD93D" },
+            success: { DEFAULT: "#4ECDC4" },
+          },
+        },
+        dark: {
+          colors: {
+            primary: {
+              DEFAULT: "#26D9C0",
+              foreground: "#0A1418",
+            },
+            danger: { DEFAULT: "#FF6B6B" },
+            warning: { DEFAULT: "#FFD93D" },
+            success: { DEFAULT: "#4ECDC4" },
+          },
+        },
+      },
+    }),
+  ],
 } satisfies Config;

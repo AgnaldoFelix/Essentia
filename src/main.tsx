@@ -1,27 +1,21 @@
 import { createRoot } from "react-dom/client";
-import { NextUIProvider } from "@nextui-org/react";
+import { HeroUIProvider } from "@heroui/react";
 import App from "./App.tsx";
+import "@fontsource/inter/400.css";
+import "@fontsource/inter/500.css";
+import "@fontsource/inter/600.css";
+import "@fontsource/inter/700.css";
+import "@fontsource/inter/800.css";
+import "@fontsource/jetbrains-mono/400.css";
+import "@fontsource/jetbrains-mono/500.css";
+import "@fontsource/jetbrains-mono/700.css";
 import "./index.css";
-import { OnlineUsersProvider } from '@/contexts/OnlineUsersContext';
-
-// Configuração mínima
-if (typeof window !== 'undefined') {
-  if (typeof (window as any).global === 'undefined') {
-    (window as any).global = window;
-  }
-}
 
 const container = document.getElementById("root");
-if (!container) {
-  throw new Error('Root element not found');
-}
+if (!container) throw new Error("Root element not found");
 
-const root = createRoot(container);
-
-root.render(
-  <NextUIProvider>
-    <OnlineUsersProvider>
-      <App />
-    </OnlineUsersProvider>
-  </NextUIProvider>
+createRoot(container).render(
+  <HeroUIProvider locale="pt-BR">
+    <App />
+  </HeroUIProvider>
 );

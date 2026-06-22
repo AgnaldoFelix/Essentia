@@ -1,14 +1,23 @@
 {
   "files": [],
-  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }],
+  "references": [
+    {
+      "path": "./tsconfig.app.json"
+    },
+    {
+      "path": "./tsconfig.node.json"
+    }
+  ],
   "compilerOptions": {
-   "module": "commonjs",
+    "module": "commonjs",
     "target": "es6",
-    "types": ["deno-global"],
-    "baseUrl": ".",
+    "types": [
+      "deno-global"
+    ],
     "paths": {
-      
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ]
     },
     "noImplicitAny": false,
     "noUnusedParameters": false,
@@ -16,6 +25,5 @@
     "allowJs": true,
     "noUnusedLocals": false,
     "strictNullChecks": false
-
   }
 }

@@ -14,7 +14,120 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      metas_usuario: {
+        Row: {
+          meta_calorias: number
+          meta_carboidratos: number
+          meta_gorduras: number
+          meta_proteinas: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          meta_calorias?: number
+          meta_carboidratos?: number
+          meta_gorduras?: number
+          meta_proteinas?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          meta_calorias?: number
+          meta_carboidratos?: number
+          meta_gorduras?: number
+          meta_proteinas?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      refeicoes: {
+        Row: {
+          ai_confianca: number | null
+          alimentos: Json | null
+          calorias: number
+          carboidratos: number
+          created_at: string
+          data: string
+          emoji: string | null
+          gorduras: number
+          horario: string
+          id: string
+          imagem_url: string | null
+          nome: string
+          proteinas: number
+          user_id: string
+        }
+        Insert: {
+          ai_confianca?: number | null
+          alimentos?: Json | null
+          calorias?: number
+          carboidratos?: number
+          created_at?: string
+          data?: string
+          emoji?: string | null
+          gorduras?: number
+          horario?: string
+          id?: string
+          imagem_url?: string | null
+          nome: string
+          proteinas?: number
+          user_id: string
+        }
+        Update: {
+          ai_confianca?: number | null
+          alimentos?: Json | null
+          calorias?: number
+          carboidratos?: number
+          created_at?: string
+          data?: string
+          emoji?: string | null
+          gorduras?: number
+          horario?: string
+          id?: string
+          imagem_url?: string | null
+          nome?: string
+          proteinas?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      registro_diario: {
+        Row: {
+          calorias: number
+          carboidratos: number
+          created_at: string
+          data: string
+          gorduras: number
+          id: string
+          proteinas: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          calorias?: number
+          carboidratos?: number
+          created_at?: string
+          data: string
+          gorduras?: number
+          id?: string
+          proteinas?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          calorias?: number
+          carboidratos?: number
+          created_at?: string
+          data?: string
+          gorduras?: number
+          id?: string
+          proteinas?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
