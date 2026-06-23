@@ -29,17 +29,17 @@ export function Header({ onOpenProfile, onOpenExport }: Props) {
       }}
     >
       <NavbarBrand className="gap-3 grow-0">
-        <motion.div
+        <motion.img
+          src="/Essentia.png"
+          alt="Essentia"
           initial={{ scale: 0.85, rotate: -10 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ type: 'spring', stiffness: 240, damping: 18 }}
-          className="size-10 rounded-xl bg-gradient-primary grid place-items-center shadow-md"
-        >
-          <span className="text-xl">🥗</span>
-        </motion.div>
+          className="size-10 rounded-xl shadow-md object-cover"
+        />
         <div className="hidden sm:block">
-          <h1 className="text-base font-extrabold leading-none">Meu Diário</h1>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Nutrição</p>
+          <h1 className="text-base font-extrabold leading-none">Essentia</h1>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Diário Alimentar</p>
         </div>
       </NavbarBrand>
 
