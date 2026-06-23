@@ -10,10 +10,10 @@ interface Props {
 }
 
 const items: { key: FabAction; label: string; icon: typeof Camera; angle: number }[] = [
-  { key: 'camera',  label: 'Câmera',  icon: Camera,    angle: 220 },
-  { key: 'gallery', label: 'Galeria', icon: ImageIcon, angle: 250 },
-  { key: 'text',    label: 'Texto',   icon: Type,      angle: 290 },
-  { key: 'voice',   label: 'Voz',     icon: Mic,       angle: 320 },
+  { key: 'camera',  label: 'Câmera',  icon: Camera,    angle: 210 },
+  { key: 'gallery', label: 'Galeria', icon: ImageIcon, angle: 240 },
+  { key: 'text',    label: 'Texto',   icon: Type,      angle: 270 },
+  { key: 'voice',   label: 'Voz',     icon: Mic,       angle: 300 },
 ];
 
 const RADIUS = 88;
