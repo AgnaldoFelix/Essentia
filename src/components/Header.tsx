@@ -28,18 +28,18 @@ export function Header({ onOpenProfile, onOpenExport }: Props) {
         wrapper: 'px-3 sm:px-6',
       }}
     >
-      <NavbarBrand className="gap-3 grow-0">
+      <NavbarBrand className="gap-2 grow-0">
         <motion.img
           src="/Essentia.png"
           alt="Essentia"
           initial={{ scale: 0.85, rotate: -10 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ type: 'spring', stiffness: 240, damping: 18 }}
-          className="size-10 rounded-xl shadow-md object-cover"
+          className="size-7 rounded-lg shadow-md object-cover"
         />
         <div className="block">
-          <h1 className="text-base font-extrabold leading-none">Essentia</h1>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Diário Alimentar</p>
+          <h1 className="text-sm font-extrabold leading-none">Essentia</h1>
+          <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Diário Alimentar</p>
         </div>
       </NavbarBrand>
 
