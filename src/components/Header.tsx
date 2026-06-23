@@ -37,7 +37,7 @@ export function Header({ onOpenProfile, onOpenExport }: Props) {
           transition={{ type: 'spring', stiffness: 240, damping: 18 }}
           className="size-10 rounded-xl shadow-md object-cover"
         />
-        <div className="hidden sm:block">
+        <div className="block">
           <h1 className="text-base font-extrabold leading-none">Essentia</h1>
           <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Diário Alimentar</p>
         </div>
