@@ -1,18 +1,17 @@
 import { supabase } from '@/integrations/supabase/client';
-import { getLocalUserId } from './localUser';
+import { ensureUserId } from './localUser';
 import type { Meal, DailyRecord, Goals, Food } from '@/types/nutrition';
 import { toDateKey } from './dateHelpers';
 import { subDays } from 'date-fns';
 
-const userId = () => getLocalUserId();
-
 /* ---------- Refeições ---------- */
 
 export async function listMealsByDate(date: Date): Promise<Meal[]> {
+  const uid = await ensureUserId();
   const { data, error } = await supabase
     .from('refeicoes')
     .select('*')
-    .eq('user_id', userId())
+    .eq('user_id', uid)
     .eq('data', toDateKey(date))
     .order('horario', { ascending: true });
   if (error) throw error;
@@ -20,8 +19,9 @@ export async function listMealsByDate(date: Date): Promise<Meal[]> {
 }
 
 export async function addMeal(payload: Omit<Meal, 'id' | 'user_id' | 'created_at'>): Promise<Meal> {
+  const uid = await ensureUserId();
   const insert = {
-    user_id: userId(),
+    user_id: uid,
     data: payload.data,
     horario: payload.horario,
     nome: payload.nome,
@@ -44,6 +44,7 @@ export async function addMeal(payload: Omit<Meal, 'id' | 'user_id' | 'created_at
 }
 
 export async function updateMeal(id: string, payload: Partial<Meal>): Promise<Meal> {
+  const uid = await ensureUserId();
   const { data, error } = await supabase
     .from('refeicoes')
     .update({
@@ -57,7 +58,7 @@ export async function updateMeal(id: string, payload: Partial<Meal>): Promise<Me
       ...(payload.carboidratos !== undefined && { carboidratos: payload.carboidratos }),
     })
     .eq('id', id)
-    .eq('user_id', userId())
+    .eq('user_id', uid)
     .select()
     .single();
   if (error) throw error;
@@ -65,33 +66,36 @@ export async function updateMeal(id: string, payload: Partial<Meal>): Promise<Me
 }
 
 export async function deleteMeal(id: string): Promise<void> {
-  const { error } = await supabase.from('refeicoes').delete().eq('id', id).eq('user_id', userId());
+  const uid = await ensureUserId();
+  const { error } = await supabase.from('refeicoes').delete().eq('id', id).eq('user_id', uid);
   if (error) throw error;
 }
 
 /* ---------- Registros diários ---------- */
 
 export async function getDailyRecord(date: Date): Promise<DailyRecord> {
+  const uid = await ensureUserId();
   const key = toDateKey(date);
   const { data, error } = await supabase
     .from('registro_diario')
     .select('*')
-    .eq('user_id', userId())
+    .eq('user_id', uid)
     .eq('data', key)
     .maybeSingle();
   if (error) throw error;
   return (data as any) ?? {
-    user_id: userId(), data: key, calorias: 0, proteinas: 0, gorduras: 0, carboidratos: 0,
+    user_id: uid, data: key, calorias: 0, proteinas: 0, gorduras: 0, carboidratos: 0,
   };
 }
 
 export async function getWeekRecords(anchor: Date): Promise<DailyRecord[]> {
+  const uid = await ensureUserId();
   const end = anchor;
   const start = subDays(anchor, 6);
   const { data, error } = await supabase
     .from('registro_diario')
     .select('*')
-    .eq('user_id', userId())
+    .eq('user_id', uid)
     .gte('data', toDateKey(start))
     .lte('data', toDateKey(end))
     .order('data', { ascending: true });
@@ -109,10 +113,11 @@ const DEFAULT_GOALS: Goals = {
 };
 
 export async function getGoals(): Promise<Goals> {
+  const uid = await ensureUserId();
   const { data, error } = await supabase
     .from('metas_usuario')
     .select('*')
-    .eq('user_id', userId())
+    .eq('user_id', uid)
     .maybeSingle();
   if (error) throw error;
   if (!data) return DEFAULT_GOALS;
@@ -125,9 +130,10 @@ export async function getGoals(): Promise<Goals> {
 }
 
 export async function saveGoals(goals: Goals): Promise<void> {
+  const uid = await ensureUserId();
   const { error } = await supabase
     .from('metas_usuario')
-    .upsert({ user_id: userId(), ...goals, updated_at: new Date().toISOString() });
+    .upsert({ user_id: uid, ...goals, updated_at: new Date().toISOString() });
   if (error) throw error;
 }
 
