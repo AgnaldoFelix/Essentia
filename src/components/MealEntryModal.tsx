@@ -198,13 +198,17 @@ export function MealEntryModal({ isOpen, onClose, initialTab = 'text', editing }
       if (editing) {
         await updateMeal(editing.id, payload as any);
         toast.success('Refeição atualizada!');
+        await refresh();
+        onClose();
       } else {
         await addMeal(payload as any);
-        toast.success('Refeição registrada!');
-        confetti({ particleCount: 80, spread: 70, origin: { y: 0.7 }, colors: ['#FF6B6B', '#4ECDC4', '#FFD93D', '#1FBFA8'] });
+        confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 }, colors: ['#FF6B6B', '#4ECDC4', '#FFD93D', '#1FBFA8', '#FFA94D'] });
+        await refresh();
+        setSavedSuccess(true);
+        setTimeout(() => {
+          onClose();
+        }, 1400);
       }
-      await refresh();
-      onClose();
     } catch (e: any) {
       console.error(e);
       toast.error(e.message ?? 'Falha ao salvar');
