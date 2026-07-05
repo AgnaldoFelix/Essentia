@@ -3,8 +3,8 @@ import {
   Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Input, Tabs, Tab, Spinner, Chip,
 } from '@heroui/react';
-import { Camera, Image as ImageIcon, Type, Mic, Upload, Sparkles, X, Check, Plus, Trash2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Camera, Image as ImageIcon, Type, Mic, Upload, Sparkles, X, Check, Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
