@@ -252,7 +252,37 @@ export function MealEntryModal({ isOpen, onClose, initialTab = 'text', editing }
               </div>
             </ModalHeader>
 
-            <ModalBody className="gap-4 py-4">
+            <ModalBody className="gap-4 py-4 relative">
+              <AnimatePresence>
+                {savedSuccess && (
+                  <motion.div
+                    key="success"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-background/85 backdrop-blur-md rounded-xl"
+                  >
+                    <motion.div
+                      initial={{ scale: 0, rotate: -20 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ type: 'spring', stiffness: 260, damping: 15 }}
+                      className="size-20 rounded-full bg-gradient-to-br from-primary to-secondary grid place-items-center shadow-lg shadow-primary/40"
+                    >
+                      <CheckCircle2 className="size-11 text-white" strokeWidth={2.5} />
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.15 }}
+                      className="text-center"
+                    >
+                      <p className="text-lg font-bold">Refeição registrada!</p>
+                      <p className="text-sm text-muted-foreground">{emoji} {nome} · {Math.round(totals.calorias)} kcal</p>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <Tabs
                 aria-label="Modo de entrada"
                 selectedKey={tab}
@@ -344,19 +374,21 @@ export function MealEntryModal({ isOpen, onClose, initialTab = 'text', editing }
               )}
             </ModalBody>
 
-            <ModalFooter>
-              <Button variant="light" onPress={close} startContent={<X className="size-4" />}>Cancelar</Button>
-              <Button
-                color="primary"
-                onPress={handleSave}
-                isLoading={saving}
-                isDisabled={saving || !foods.length || !nome.trim()}
-                startContent={!saving && <Check className="size-4" />}
-                className="bg-gradient-primary"
-              >
-                {editing ? 'Salvar alterações' : 'Confirmar refeição'}
-              </Button>
-            </ModalFooter>
+            {!savedSuccess && (
+              <ModalFooter>
+                <Button variant="light" onPress={close} startContent={<X className="size-4" />}>Cancelar</Button>
+                <Button
+                  color="primary"
+                  onPress={handleSave}
+                  isLoading={saving}
+                  isDisabled={saving || !foods.length || !nome.trim()}
+                  startContent={!saving && <Check className="size-4" />}
+                  className="bg-gradient-primary"
+                >
+                  {editing ? 'Salvar alterações' : 'Confirmar refeição'}
+                </Button>
+              </ModalFooter>
+            )}
           </>
         )}
       </ModalContent>
