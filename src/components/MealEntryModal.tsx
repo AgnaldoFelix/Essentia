@@ -462,37 +462,83 @@ function ReviewPanel({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-12 gap-3">
-        <div className="col-span-2">
+      <div className="grid grid-cols-6 gap-2 sm:grid-cols-12 sm:gap-3">
+        <div className="col-span-2 sm:col-span-2">
           <Input label="Emoji" value={emoji} onValueChange={setEmoji} maxLength={4} size="sm" />
         </div>
-        <div className="col-span-6">
+        <div className="col-span-4 sm:col-span-6">
           <Input label="Nome" value={nome} onValueChange={setNome} size="sm" placeholder="Ex: Almoço" />
         </div>
-        <div className="col-span-4">
+        <div className="col-span-6 sm:col-span-4">
           <Input label="Horário" type="time" value={horario} onValueChange={setHorario} size="sm" />
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         <Chip color="danger" variant="flat" size="sm">🔥 {Math.round(totals.calorias)} kcal</Chip>
-        <Chip color="success" variant="flat" size="sm">💪 {Math.round(totals.proteinas)} g prot.</Chip>
-        <Chip color="warning" variant="flat" size="sm">🥑 {Math.round(totals.gorduras)} g gord.</Chip>
-        <Chip color="primary" variant="flat" size="sm">🌾 {Math.round(totals.carboidratos)} g carb.</Chip>
+        <Chip color="success" variant="flat" size="sm">💪 {Math.round(totals.proteinas)}g prot</Chip>
+        <Chip color="warning" variant="flat" size="sm">🥑 {Math.round(totals.gorduras)}g gord</Chip>
       </div>
 
       <div className="space-y-2">
         {foods.map((f, i) => (
-          <div key={i} className="grid grid-cols-12 gap-2 items-center bg-card/70 p-2 rounded-lg border border-border/50">
-            <Input size="sm" className="col-span-4" placeholder="Alimento" value={f.name} onValueChange={(v) => updateFood(i, { name: v })} />
-            <Input size="sm" className="col-span-2" placeholder="Qtd" value={f.amount} onValueChange={(v) => updateFood(i, { amount: v })} />
-            <Input size="sm" className="col-span-2" type="number" placeholder="kcal" value={String(f.calories)} onValueChange={(v) => updateFood(i, { calories: Number(v) || 0 })} />
-            <Input size="sm" className="col-span-1" type="number" placeholder="P" value={String(f.protein)} onValueChange={(v) => updateFood(i, { protein: Number(v) || 0 })} />
-            <Input size="sm" className="col-span-1" type="number" placeholder="G" value={String(f.fat)} onValueChange={(v) => updateFood(i, { fat: Number(v) || 0 })} />
-            <Input size="sm" className="col-span-1" type="number" placeholder="C" value={String(f.carbs)} onValueChange={(v) => updateFood(i, { carbs: Number(v) || 0 })} />
-            <Button isIconOnly size="sm" color="danger" variant="light" className="col-span-1" onPress={() => setFoods(foods.filter((_, idx) => idx !== i))}>
-              <Trash2 className="size-3.5" />
-            </Button>
+          <div key={i} className="bg-card/70 p-2.5 rounded-xl border border-border/50 space-y-2">
+            {/* Linha 1: nome + remover */}
+            <div className="flex items-center gap-2">
+              <Input
+                size="sm"
+                className="flex-1"
+                placeholder="Alimento"
+                value={f.name}
+                onValueChange={(v) => updateFood(i, { name: v })}
+              />
+              <Button
+                isIconOnly
+                size="sm"
+                color="danger"
+                variant="light"
+                aria-label="Remover alimento"
+                onPress={() => setFoods(foods.filter((_, idx) => idx !== i))}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+            {/* Linha 2: qtd + macros (Kcal, P, G) */}
+            <div className="grid grid-cols-4 gap-2">
+              <Input
+                size="sm"
+                placeholder="Qtd"
+                value={f.amount}
+                onValueChange={(v) => updateFood(i, { amount: v })}
+              />
+              <Input
+                size="sm"
+                type="number"
+                inputMode="numeric"
+                label="kcal"
+                labelPlacement="inside"
+                value={String(f.calories)}
+                onValueChange={(v) => updateFood(i, { calories: Number(v) || 0 })}
+              />
+              <Input
+                size="sm"
+                type="number"
+                inputMode="numeric"
+                label="Prot (g)"
+                labelPlacement="inside"
+                value={String(f.protein)}
+                onValueChange={(v) => updateFood(i, { protein: Number(v) || 0 })}
+              />
+              <Input
+                size="sm"
+                type="number"
+                inputMode="numeric"
+                label="Gord (g)"
+                labelPlacement="inside"
+                value={String(f.fat)}
+                onValueChange={(v) => updateFood(i, { fat: Number(v) || 0 })}
+              />
+            </div>
           </div>
         ))}
         <Button
