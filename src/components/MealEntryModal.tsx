@@ -3,8 +3,8 @@ import {
   Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Input, Tabs, Tab, Spinner, Chip,
 } from '@heroui/react';
-import { Camera, Image as ImageIcon, Type, Mic, Upload, Sparkles, X, Check, Plus, Trash2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Camera, Image as ImageIcon, Type, Mic, Upload, Sparkles, X, Check, Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -60,6 +60,7 @@ export function MealEntryModal({ isOpen, onClose, initialTab = 'text', editing }
   const [foods, setFoods] = useState<Food[]>([]);
   const [confianca, setConfianca] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const recRef = useRef<any>(null);
@@ -85,6 +86,7 @@ export function MealEntryModal({ isOpen, onClose, initialTab = 'text', editing }
       setPhotoFile(null);
       setTextInput('');
     }
+    setSavedSuccess(false);
   }, [isOpen, editing, initialTab]);
 
   const totals = foods.reduce(
@@ -196,13 +198,17 @@ export function MealEntryModal({ isOpen, onClose, initialTab = 'text', editing }
       if (editing) {
         await updateMeal(editing.id, payload as any);
         toast.success('Refeição atualizada!');
+        await refresh();
+        onClose();
       } else {
         await addMeal(payload as any);
-        toast.success('Refeição registrada!');
-        confetti({ particleCount: 80, spread: 70, origin: { y: 0.7 }, colors: ['#FF6B6B', '#4ECDC4', '#FFD93D', '#1FBFA8'] });
+        confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 }, colors: ['#FF6B6B', '#4ECDC4', '#FFD93D', '#1FBFA8', '#FFA94D'] });
+        await refresh();
+        setSavedSuccess(true);
+        setTimeout(() => {
+          onClose();
+        }, 1400);
       }
-      await refresh();
-      onClose();
     } catch (e: any) {
       console.error(e);
       toast.error(e.message ?? 'Falha ao salvar');
@@ -246,7 +252,37 @@ export function MealEntryModal({ isOpen, onClose, initialTab = 'text', editing }
               </div>
             </ModalHeader>
 
-            <ModalBody className="gap-4 py-4">
+            <ModalBody className="gap-4 py-4 relative">
+              <AnimatePresence>
+                {savedSuccess && (
+                  <motion.div
+                    key="success"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-background/85 backdrop-blur-md rounded-xl"
+                  >
+                    <motion.div
+                      initial={{ scale: 0, rotate: -20 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ type: 'spring', stiffness: 260, damping: 15 }}
+                      className="size-20 rounded-full bg-gradient-to-br from-primary to-secondary grid place-items-center shadow-lg shadow-primary/40"
+                    >
+                      <CheckCircle2 className="size-11 text-white" strokeWidth={2.5} />
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.15 }}
+                      className="text-center"
+                    >
+                      <p className="text-lg font-bold">Refeição registrada!</p>
+                      <p className="text-sm text-muted-foreground">{emoji} {nome} · {Math.round(totals.calorias)} kcal</p>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <Tabs
                 aria-label="Modo de entrada"
                 selectedKey={tab}
@@ -338,19 +374,21 @@ export function MealEntryModal({ isOpen, onClose, initialTab = 'text', editing }
               )}
             </ModalBody>
 
-            <ModalFooter>
-              <Button variant="light" onPress={close} startContent={<X className="size-4" />}>Cancelar</Button>
-              <Button
-                color="primary"
-                onPress={handleSave}
-                isLoading={saving}
-                isDisabled={saving || !foods.length || !nome.trim()}
-                startContent={!saving && <Check className="size-4" />}
-                className="bg-gradient-primary"
-              >
-                {editing ? 'Salvar alterações' : 'Confirmar refeição'}
-              </Button>
-            </ModalFooter>
+            {!savedSuccess && (
+              <ModalFooter>
+                <Button variant="light" onPress={close} startContent={<X className="size-4" />}>Cancelar</Button>
+                <Button
+                  color="primary"
+                  onPress={handleSave}
+                  isLoading={saving}
+                  isDisabled={saving || !foods.length || !nome.trim()}
+                  startContent={!saving && <Check className="size-4" />}
+                  className="bg-gradient-primary"
+                >
+                  {editing ? 'Salvar alterações' : 'Confirmar refeição'}
+                </Button>
+              </ModalFooter>
+            )}
           </>
         )}
       </ModalContent>
