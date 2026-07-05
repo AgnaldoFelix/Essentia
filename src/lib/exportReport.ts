@@ -11,8 +11,8 @@ interface ExportPayload {
 }
 
 const fmt = (n: number) => Math.round(n).toString();
-const clampProtein = (n: number) => Math.min(Math.max(n, 150), 200);
-const clampCalories = (n: number) => Math.min(Math.max(n, 1782), 2129);
+const clampProtein = (n: number) => Math.min(Math.max(n, 140), 200);
+const clampCalories = (n: number) => Math.min(Math.max(n, 1500), 2000);
 
 export async function exportPDF(p: ExportPayload) {
   const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
@@ -46,7 +46,7 @@ export async function exportPDF(p: ExportPayload) {
     body: [
       ['Calorias (kcal)', fmt(clampCalories(p.daily.calorias)), fmt(clampCalories(p.goals.meta_calorias)), `${Math.round((clampCalories(p.daily.calorias) / clampCalories(p.goals.meta_calorias)) * 100) || 0}%`],
       ['Proteinas (g)', fmt(proteinConsumed), fmt(proteinGoal), `${proteinPercent}%`],
-      ['Gorduras (g)',   fmt(clampProtein(p.daily.gorduras)),  fmt(clampProtein(p.goals.meta_gorduras)),  `${Math.round((clampProtein(p.daily.gorduras) / clampProtein(p.goals.meta_gorduras)) * 100) || 0}%`],
+      ['Gorduras (g)',   fmt(p.daily.gorduras),  fmt(p.goals.meta_gorduras),  `${Math.round((p.daily.gorduras / (p.goals.meta_gorduras || 1)) * 100) || 0}%`],
       ['Carboidratos (g)', fmt(p.daily.carboidratos), fmt(p.goals.meta_carboidratos), `${Math.round((p.daily.carboidratos / p.goals.meta_carboidratos) * 100) || 0}%`],
     ],
     styles: { fontSize: 10 },

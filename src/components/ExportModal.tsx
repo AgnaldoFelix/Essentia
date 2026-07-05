@@ -19,33 +19,30 @@ interface Props {
 
 // Gera histórico simulado de 7 dias baseado nas refeições atuais
 function generateFakeHistory(refDate: Date, meals: Meal[], goals: { meta_calorias: number; meta_proteinas: number; meta_gorduras: number; meta_carboidratos: number }): DailyRecord[] {
-  // base = média das refeições do dia * n_refeicoes_por_dia (usa 3 se vazio)
-  const totalCals = meals.reduce((a, m) => a + Number(m.calorias), 0);
-  const totalProt = meals.reduce((a, m) => a + Number(m.proteinas), 0);
-  const totalFat  = meals.reduce((a, m) => a + Number(m.gorduras), 0);
-  const totalCarb = meals.reduce((a, m) => a + Number(m.carboidratos), 0);
+  // Gera 7 dias anteriores com valores mais realistas:
+  // - calorias: 1500..2000
+  // - proteinas: 140..200
+  // gorduras/carboidratos aproximados a partir das metas com variação
+  const randInt = (min: number, max: number) => Math.round(min + Math.random() * (max - min));
 
-  // Se não houver refeições, usa 90% da meta como base
-  const baseCal = totalCals > 0 ? totalCals : goals.meta_calorias * 0.9;
-  const baseProt = totalProt > 0 ? totalProt : goals.meta_proteinas * 0.9;
-  const baseFat  = totalFat  > 0 ? totalFat  : goals.meta_gorduras  * 0.9;
-  const baseCarb = totalCarb > 0 ? totalCarb : goals.meta_carboidratos * 0.9;
-
-  const jitter = (base: number, pct = 0.18) => {
-    const variation = (Math.random() * 2 - 1) * pct;
-    return Math.max(0, base * (1 + variation));
-  };
+  const fatGoal = goals.meta_gorduras || 70;
+  const carbGoal = goals.meta_carboidratos || 250;
 
   const records: DailyRecord[] = [];
   for (let i = 6; i >= 0; i--) {
     const d = subDays(refDate, i);
+    const calorias = randInt(1500, 2000);
+    const proteinas = randInt(140, 200);
+    const gorduras = Math.round(fatGoal * (0.7 + Math.random() * 0.6)); // 70%..130% da meta
+    const carboidratos = Math.round(carbGoal * (0.7 + Math.random() * 0.6));
+
     records.push({
       user_id: 'simulado',
       data: toDateKey(d),
-      calorias: Math.round(jitter(baseCal)),
-      proteinas: Math.round(jitter(baseProt)),
-      gorduras: Math.round(jitter(baseFat)),
-      carboidratos: Math.round(jitter(baseCarb)),
+      calorias,
+      proteinas,
+      gorduras,
+      carboidratos,
     });
   }
   return records;
@@ -78,11 +75,14 @@ export function ExportModal({ isOpen, onClose }: Props) {
               { id: 'f4', user_id: 'simulado', data: toDateKey(ref), horario: '20:00', nome: 'Jantar', emoji: '🍲', alimentos: [], calorias: Math.round(dailyFake.calorias * 0.25), proteinas: Math.round(dailyFake.proteinas * 0.25), gorduras: Math.round(dailyFake.gorduras * 0.25), carboidratos: Math.round(dailyFake.carboidratos * 0.2) },
             ];
 
+        // Simulated goals for the fake report (user requested 1750 kcal and 180g protein goal)
+        const simulatedGoals = { ...goals, meta_calorias: 1750, meta_proteinas: 180 };
+
         if (formato === 'pdf') {
           await exportPDF({
             dataReferencia: `${toDateKey(ref)}`,
             daily: dailyFake,
-            goals,
+            goals: simulatedGoals,
             meals: fakeMeals,
             historico,
           });
