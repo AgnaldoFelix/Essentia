@@ -86,6 +86,7 @@ export function MealEntryModal({ isOpen, onClose, initialTab = 'text', editing }
       setPhotoFile(null);
       setTextInput('');
     }
+    setSavedSuccess(false);
   }, [isOpen, editing, initialTab]);
 
   const totals = foods.reduce(
