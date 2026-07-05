@@ -60,6 +60,7 @@ export function MealEntryModal({ isOpen, onClose, initialTab = 'text', editing }
   const [foods, setFoods] = useState<Food[]>([]);
   const [confianca, setConfianca] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const recRef = useRef<any>(null);
