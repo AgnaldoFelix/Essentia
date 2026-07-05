@@ -80,7 +80,7 @@ export function ExportModal({ isOpen, onClose }: Props) {
 
         if (formato === 'pdf') {
           await exportPDF({
-            dataReferencia: `${toDateKey(ref)} (simulado)`,
+            dataReferencia: `${toDateKey(ref)}`,
             daily: dailyFake,
             goals,
             meals: fakeMeals,
