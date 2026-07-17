@@ -18,6 +18,24 @@ export async function listMealsByDate(date: Date): Promise<Meal[]> {
   return ((data || []) as any).map(mapMeal);
 }
 
+export async function listRecentMeals(days = 14, excludeDate?: Date): Promise<Meal[]> {
+  const uid = await ensureUserId();
+  const end = new Date();
+  const start = subDays(end, days);
+  let q = supabase
+    .from('refeicoes')
+    .select('*')
+    .eq('user_id', uid)
+    .gte('data', toDateKey(start))
+    .lte('data', toDateKey(end))
+    .order('data', { ascending: false })
+    .order('horario', { ascending: true });
+  if (excludeDate) q = q.neq('data', toDateKey(excludeDate));
+  const { data, error } = await q;
+  if (error) throw error;
+  return ((data || []) as any).map(mapMeal);
+}
+
 export async function addMeal(payload: Omit<Meal, 'id' | 'user_id' | 'created_at'>): Promise<Meal> {
   const uid = await ensureUserId();
   const insert = {
