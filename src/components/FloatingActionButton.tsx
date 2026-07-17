@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Button, Tooltip } from '@heroui/react';
-import { Plus, Camera, ImageIcon, Type, Mic } from 'lucide-react';
+import { Plus, Camera, ImageIcon, Type, Mic, History } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export type FabAction = 'camera' | 'gallery' | 'text' | 'voice';
+export type FabAction = 'camera' | 'gallery' | 'text' | 'voice' | 'repeat';
 
 interface Props {
   onAction: (a: FabAction) => void;
 }
 
 const items: { key: FabAction; label: string; icon: typeof Camera; angle: number }[] = [
-  { key: 'camera',  label: 'Câmera',  icon: Camera,    angle: 210 },
-  { key: 'gallery', label: 'Galeria', icon: ImageIcon, angle: 240 },
-  { key: 'text',    label: 'Texto',   icon: Type,      angle: 270 },
-  { key: 'voice',   label: 'Voz',     icon: Mic,       angle: 300 },
+  { key: 'camera',  label: 'Câmera',  icon: Camera,    angle: 200 },
+  { key: 'gallery', label: 'Galeria', icon: ImageIcon, angle: 226 },
+  { key: 'text',    label: 'Texto',   icon: Type,      angle: 252 },
+  { key: 'voice',   label: 'Voz',     icon: Mic,       angle: 278 },
+  { key: 'repeat',  label: 'Repetir', icon: History,   angle: 310 },
 ];
 
 const RADIUS = 88;
