@@ -76,6 +76,7 @@ function Shell() {
         editing={editingMeal}
       />
       <ExportModal isOpen={exportOpen} onClose={() => setExportOpen(false)} />
+      <RepeatMealModal isOpen={repeatOpen} onClose={() => setRepeatOpen(false)} />
       <Toaster position="top-center" richColors closeButton />
     </div>
   );
