@@ -6,6 +6,7 @@ import { Header } from '@/components/Header';
 import { BottomNav, Sidebar, type TabKey } from '@/components/Navigation';
 import { FloatingActionButton, type FabAction } from '@/components/FloatingActionButton';
 import { MealEntryModal } from '@/components/MealEntryModal';
+import { RepeatMealModal } from '@/components/RepeatMealModal';
 import { ExportModal } from '@/components/ExportModal';
 import { Dashboard } from '@/pages/Dashboard';
 import { History } from '@/pages/History';
