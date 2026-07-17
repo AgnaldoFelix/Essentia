@@ -26,6 +26,7 @@ const tabFromAction: Record<FabAction, string> = {
   gallery: 'photo',
   text: 'text',
   voice: 'voice',
+  repeat: 'text',
 };
 
 interface AnalysisCache { [hash: string]: AIAnalysisResult }
