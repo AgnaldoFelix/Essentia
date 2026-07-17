@@ -6,6 +6,7 @@ import { Header } from '@/components/Header';
 import { BottomNav, Sidebar, type TabKey } from '@/components/Navigation';
 import { FloatingActionButton, type FabAction } from '@/components/FloatingActionButton';
 import { MealEntryModal } from '@/components/MealEntryModal';
+import { RepeatMealModal } from '@/components/RepeatMealModal';
 import { ExportModal } from '@/components/ExportModal';
 import { Dashboard } from '@/pages/Dashboard';
 import { History } from '@/pages/History';
@@ -16,11 +17,16 @@ import type { Meal } from '@/types/nutrition';
 function Shell() {
   const [tab, setTab] = useState<TabKey>('dashboard');
   const [mealModalOpen, setMealModalOpen] = useState(false);
+  const [repeatOpen, setRepeatOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [fabAction, setFabAction] = useState<FabAction>('text');
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
 
   const openCreate = (a: FabAction) => {
+    if (a === 'repeat') {
+      setRepeatOpen(true);
+      return;
+    }
     setEditingMeal(null);
     setFabAction(a);
     setMealModalOpen(true);
@@ -70,6 +76,7 @@ function Shell() {
         editing={editingMeal}
       />
       <ExportModal isOpen={exportOpen} onClose={() => setExportOpen(false)} />
+      <RepeatMealModal isOpen={repeatOpen} onClose={() => setRepeatOpen(false)} />
       <Toaster position="top-center" richColors closeButton />
     </div>
   );

@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Button, Tooltip } from '@heroui/react';
-import { Plus, Camera, ImageIcon, Type, Mic } from 'lucide-react';
+import { Plus, Camera, ImageIcon, Type, Mic, History } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export type FabAction = 'camera' | 'gallery' | 'text' | 'voice';
+export type FabAction = 'camera' | 'gallery' | 'text' | 'voice' | 'repeat';
 
 interface Props {
   onAction: (a: FabAction) => void;
 }
 
 const items: { key: FabAction; label: string; icon: typeof Camera; angle: number }[] = [
-  { key: 'camera',  label: 'Câmera',  icon: Camera,    angle: 210 },
-  { key: 'gallery', label: 'Galeria', icon: ImageIcon, angle: 240 },
-  { key: 'text',    label: 'Texto',   icon: Type,      angle: 270 },
-  { key: 'voice',   label: 'Voz',     icon: Mic,       angle: 300 },
+  { key: 'camera',  label: 'Câmera',  icon: Camera,    angle: 200 },
+  { key: 'gallery', label: 'Galeria', icon: ImageIcon, angle: 226 },
+  { key: 'text',    label: 'Texto',   icon: Type,      angle: 252 },
+  { key: 'voice',   label: 'Voz',     icon: Mic,       angle: 278 },
+  { key: 'repeat',  label: 'Repetir', icon: History,   angle: 310 },
 ];
 
 const RADIUS = 88;
@@ -53,7 +54,7 @@ export function FloatingActionButton({ onAction }: Props) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.94 }}
               transition={{ type: 'spring', stiffness: 360, damping: 28 }}
-              className="absolute bottom-20 left-1/2 -ml-[94px] grid w-[188px] grid-cols-2 gap-2 rounded-2xl border border-border/60 bg-background/95 p-2 shadow-floating backdrop-blur-xl md:hidden"
+              className="absolute bottom-20 left-1/2 -ml-[141px] grid w-[282px] grid-cols-3 gap-2 rounded-2xl border border-border/60 bg-background/95 p-2 shadow-floating backdrop-blur-xl md:hidden"
             >
               {items.map((it) => {
                 const Icon = it.icon;
