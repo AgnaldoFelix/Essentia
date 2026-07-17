@@ -17,11 +17,16 @@ import type { Meal } from '@/types/nutrition';
 function Shell() {
   const [tab, setTab] = useState<TabKey>('dashboard');
   const [mealModalOpen, setMealModalOpen] = useState(false);
+  const [repeatOpen, setRepeatOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [fabAction, setFabAction] = useState<FabAction>('text');
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null);
 
   const openCreate = (a: FabAction) => {
+    if (a === 'repeat') {
+      setRepeatOpen(true);
+      return;
+    }
     setEditingMeal(null);
     setFabAction(a);
     setMealModalOpen(true);
